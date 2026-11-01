@@ -1,5 +1,4 @@
-# Quantum Harmony — Claude Code Plugin Marketplace
-
+# Quantum Harmony
 Agent infrastructure for [Artemis City](https://artemiscity.com), published by Quantum Harmony LLC.
 
 A Claude Code plugin marketplace. The manifest lives at `.claude-plugin/marketplace.json`; each
