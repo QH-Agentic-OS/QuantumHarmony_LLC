@@ -1,0 +1,2041 @@
+{
+  "info": {
+    "_postman_id": "75edc075-a46a-4bd9-af8a-a3788e598fa2",
+    "name": "Artemis City API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "api",
+      "item": [
+        {
+          "name": "v1",
+          "item": [
+            {
+              "name": "atp",
+              "item": [
+                {
+                  "name": "format",
+                  "item": [
+                    {
+                      "name": "Format Message",
+                      "id": "8f33db6e-78a4-4362-81e1-ff35c996340b",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"header\": {\n    \"mode\": \"REPORT\",\n    \"context\": \"Format this message\",\n    \"priority\": \"MEDIUM\",\n    \"actionType\": \"READ\",\n    \"targetZone\": \"system\",\n    \"senderId\": \"api\"\n  },\n  \"payload\": {\n    \"content\": \"Message to be formatted\"\n  }\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/atp/format",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "atp",
+                            "format"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "9873dddf-11eb-4d03-a579-ef211a236c43"
+                },
+                {
+                  "name": "action-types",
+                  "item": [
+                    {
+                      "name": "Get Action Types",
+                      "id": "8cab061c-312b-4091-89dd-9077499fc77e",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/atp/action-types",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "atp",
+                            "action-types"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "357e314f-0731-4e84-9bdd-dc7d04f0bc23"
+                },
+                {
+                  "name": "message",
+                  "item": [
+                    {
+                      "name": "{messageId}",
+                      "item": [
+                        {
+                          "name": "Get Message",
+                          "id": "d936036c-302b-4be9-ac62-d9291afe8b19",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "method": "GET",
+                            "header": [],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/atp/message/:messageId",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "atp",
+                                "message",
+                                ":messageId"
+                              ],
+                              "variable": [
+                                {
+                                  "id": "70148112-570e-4682-a46a-13fd4fb59a54",
+                                  "key": "messageId",
+                                  "value": "{{messageId}}"
+                                }
+                              ]
+                            }
+                          },
+                          "response": []
+                        }
+                      ],
+                      "id": "595b4e17-4c7e-4d34-8e74-38d412f9b33b"
+                    }
+                  ],
+                  "id": "90d91737-2156-4fcb-a8d9-a8bded0ac801"
+                },
+                {
+                  "name": "modes",
+                  "item": [
+                    {
+                      "name": "Get Modes",
+                      "id": "9b923eca-c57b-49e1-9ec4-46b3adf542e2",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/atp/modes",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "atp",
+                            "modes"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "3b359abd-6672-47e9-a576-570e6286ba08"
+                },
+                {
+                  "name": "priorities",
+                  "item": [
+                    {
+                      "name": "Get Priorities",
+                      "id": "b11a6a3c-a39f-4f17-8e0e-0785c1ebb983",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/atp/priorities",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "atp",
+                            "priorities"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "b7ffe5ce-d74e-40a6-a43d-726dbb66f7f1"
+                },
+                {
+                  "name": "queue",
+                  "item": [
+                    {
+                      "name": "Get Queue Status",
+                      "id": "c37636ee-a57f-4c04-b052-ae70bad2d63c",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/atp/queue",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "atp",
+                            "queue"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "ddda281a-251f-4221-9382-de399a4c9164"
+                },
+                {
+                  "name": "response",
+                  "item": [
+                    {
+                      "name": "{messageId}",
+                      "item": [
+                        {
+                          "name": "Get Response",
+                          "id": "821cf41e-d7ed-4ddf-b008-a8cf8cefd1d6",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "method": "GET",
+                            "header": [],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/atp/response/:messageId",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "atp",
+                                "response",
+                                ":messageId"
+                              ],
+                              "variable": [
+                                {
+                                  "id": "a0e77477-e099-4732-8072-07608eb127bb",
+                                  "key": "messageId",
+                                  "value": "{{messageId}}"
+                                }
+                              ]
+                            }
+                          },
+                          "response": []
+                        }
+                      ],
+                      "id": "cb26a23e-a4ee-4a7b-a356-cfd2fbd08e76"
+                    }
+                  ],
+                  "id": "94772554-7978-4620-badd-8027ec24893d"
+                },
+                {
+                  "name": "template",
+                  "item": [
+                    {
+                      "name": "Get Template",
+                      "id": "9f349519-81e0-4f16-926c-69f7a69c456e",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/atp/template",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "atp",
+                            "template"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "08165211-7452-4b4a-92a6-9e6085768d3c"
+                },
+                {
+                  "name": "route",
+                  "item": [
+                    {
+                      "name": "Route Message",
+                      "id": "6f0003a5-0095-4834-8135-f766590c3d11",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"message\": {\n    \"header\": {\n      \"mode\": \"DELEGATE\",\n      \"context\": \"Route to appropriate agent\",\n      \"priority\": \"HIGH\",\n      \"actionType\": \"NOTIFY\",\n      \"targetZone\": \"vault\",\n      \"senderId\": \"artemis\"\n    },\n    \"payload\": {\n      \"content\": \"Route this to the memory manager\"\n    }\n  }\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/atp/route",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "atp",
+                            "route"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "22ebc494-cfce-4970-8749-0cd7a4f0d009"
+                },
+                {
+                  "name": "send",
+                  "item": [
+                    {
+                      "name": "Send Message",
+                      "id": "cb3e1b76-8995-484c-b5b1-856b9dfb3931",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"header\": {\n    \"mode\": \"QUERY\",\n    \"context\": \"Request information about system status\",\n    \"priority\": \"MEDIUM\",\n    \"actionType\": \"READ\",\n    \"targetZone\": \"system\",\n    \"senderId\": \"api\"\n  },\n  \"payload\": {\n    \"content\": \"What is the current system status?\"\n  }\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/atp/send",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "atp",
+                            "send"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "e4de5be9-2b05-492e-8de3-bd08cc797bc9"
+                },
+                {
+                  "name": "validate",
+                  "item": [
+                    {
+                      "name": "Validate Message",
+                      "id": "2f9d86f6-e83f-498c-a055-cb4fb3f700de",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"header\": {\n    \"mode\": \"QUERY\",\n    \"context\": \"Validate this message\",\n    \"priority\": \"LOW\",\n    \"actionType\": \"READ\",\n    \"targetZone\": \"system\",\n    \"senderId\": \"api\"\n  },\n  \"payload\": {\n    \"content\": \"Test message\"\n  }\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/atp/validate",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "atp",
+                            "validate"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "9ade1cc4-d97b-4f41-a1c2-b613edd697cc"
+                }
+              ],
+              "id": "f92537e9-5b34-42e9-aa42-e259fa23f05b"
+            },
+            {
+              "name": "agents",
+              "item": [
+                {
+                  "name": "{agentId}",
+                  "item": [
+                    {
+                      "name": "activate",
+                      "item": [
+                        {
+                          "name": "Activate Agent",
+                          "id": "a18b5e43-fcae-4583-8ce4-ff085a42bd71",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "method": "GET",
+                            "header": [],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/agents/:agentId/activate",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "agents",
+                                ":agentId",
+                                "activate"
+                              ],
+                              "variable": [
+                                {
+                                  "id": "704dcb5a-86b1-4e0e-92a4-e3a9be6a082c",
+                                  "key": "agentId",
+                                  "value": "{{agentId}}"
+                                }
+                              ]
+                            }
+                          },
+                          "response": []
+                        }
+                      ],
+                      "id": "2aee605a-8329-49a9-ae2c-7df7c43b3408"
+                    },
+                    {
+                      "name": "card",
+                      "item": [
+                        {
+                          "name": "Get Agent Card",
+                          "id": "e8330cee-eca2-4406-b1d7-c22fa70cb4bb",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "method": "GET",
+                            "header": [],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/agents/:agentId/card",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "agents",
+                                ":agentId",
+                                "card"
+                              ],
+                              "variable": [
+                                {
+                                  "id": "ea9807c1-1233-4e1b-a292-a535f50dc968",
+                                  "key": "agentId",
+                                  "value": "{{agentId}}"
+                                }
+                              ]
+                            }
+                          },
+                          "response": []
+                        }
+                      ],
+                      "id": "7a945142-86a6-43ea-bdfa-ae40bc1c4061"
+                    },
+                    {
+                      "name": "suspend",
+                      "item": [
+                        {
+                          "name": "Suspend Agent",
+                          "id": "61693148-90ce-468a-ab90-3b0fc9aa1ce0",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "method": "POST",
+                            "header": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              }
+                            ],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\n  \"reason\": \"Maintenance\"\n}",
+                              "options": {
+                                "raw": {
+                                  "headerFamily": "json",
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/agents/:agentId/suspend",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "agents",
+                                ":agentId",
+                                "suspend"
+                              ],
+                              "variable": [
+                                {
+                                  "id": "03ec76c5-b64f-45a2-ae98-2de8cc93fb27",
+                                  "key": "agentId",
+                                  "value": "{{agentId}}"
+                                }
+                              ]
+                            }
+                          },
+                          "response": []
+                        }
+                      ],
+                      "id": "3d1cda0d-d14c-4d4a-be74-9ccfba4fe292"
+                    },
+                    {
+                      "name": "Delete Agent",
+                      "id": "7e07d82d-cba3-4e96-a096-cca9b48b0368",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/agents/:agentId",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "agents",
+                            ":agentId"
+                          ],
+                          "variable": [
+                            {
+                              "id": "ef8e78ae-e062-4882-adc4-f5ec498f4efd",
+                              "key": "agentId",
+                              "value": "{{agentId}}"
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Get Agent",
+                      "id": "54a8acfc-5ea6-495e-ae39-b5b6ff0a7fd3",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/agents/:agentId",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "agents",
+                            ":agentId"
+                          ],
+                          "variable": [
+                            {
+                              "id": "a6d9b22e-e69f-457c-863e-e61b2f30fdaf",
+                              "key": "agentId",
+                              "value": "{{agentId}}"
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Update Agent",
+                      "id": "e1e363c9-4b77-4ffd-b317-8e4dbbbe4a6c",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "PUT",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"name\": \"Updated Agent Name\",\n  \"role\": \"updated-role\",\n  \"capabilities\": [\n    \"read\",\n    \"write\",\n    \"search\"\n  ],\n  \"zones\": [\n    \"vault\",\n    \"memory\"\n  ],\n  \"trustLevel\": 0.7\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/agents/:agentId",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "agents",
+                            ":agentId"
+                          ],
+                          "variable": [
+                            {
+                              "id": "a024d81c-9f78-4ae8-aff8-7694d61a4df1",
+                              "key": "agentId",
+                              "value": "{{agentId}}"
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "f8673729-1627-4fa6-8802-535f118cd1ae"
+                },
+                {
+                  "name": "List All Agents",
+                  "id": "71758279-481f-46f7-afbd-3fe80fe8c13a",
+                  "protocolProfileBehavior": {
+                    "disableBodyPruning": true
+                  },
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/agents",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "agents"
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Register Agent",
+                  "id": "e7a095af-e566-4873-98e4-29ff4546a5d1",
+                  "protocolProfileBehavior": {
+                    "disableBodyPruning": true
+                  },
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"id\": \"new-agent\",\n  \"name\": \"New Agent\",\n  \"role\": \"assistant\",\n  \"capabilities\": [\n    \"read\",\n    \"write\"\n  ],\n  \"zones\": [\n    \"vault\"\n  ],\n  \"trustLevel\": 0.5,\n  \"metadata\": {\n    \"description\": \"A new agent\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/agents",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "agents"
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ],
+              "id": "6cdc4ab8-8a80-486c-935a-06b60d60a837"
+            },
+            {
+              "name": "llm",
+              "item": [
+                {
+                  "name": "chat",
+                  "item": [
+                    {
+                      "name": "Chat Completion",
+                      "id": "a22551da-ca9e-4ecf-897a-f6afad5eb251",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"What is Artemis City?\"\n    }\n  ],\n  \"model\": \"claude-3-5-sonnet-20241022\",\n  \"options\": {\n    \"max_tokens\": 1024\n  }\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/llm/chat",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "llm",
+                            "chat"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "8cbda180-5587-44a8-a3db-617811afcf10"
+                },
+                {
+                  "name": "provider",
+                  "item": [
+                    {
+                      "name": "Configure Provider",
+                      "id": "f134a136-eb7d-4042-b629-4918c885efcc",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"provider\": \"anthropic\",\n  \"apiKey\": \"your-anthropic-api-key\",\n  \"baseUrl\": \"https://api.anthropic.com\",\n  \"options\": {\n    \"defaultModel\": \"claude-3-5-sonnet-20241022\"\n  }\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/llm/provider",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "llm",
+                            "provider"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "458967a2-ea89-49b3-98dc-227c41c9c2c7"
+                },
+                {
+                  "name": "embed",
+                  "item": [
+                    {
+                      "name": "Generate Embeddings",
+                      "id": "bb8d7762-c7f6-402f-b0ba-626363c7d135",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"text\": \"Artemis City is an agentic AI platform\",\n  \"model\": \"text-embedding-3-small\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/llm/embed",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "llm",
+                            "embed"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "79133657-edc7-4885-a0d0-1107e2f0c4e2"
+                },
+                {
+                  "name": "usage",
+                  "item": [
+                    {
+                      "name": "Get Usage Stats",
+                      "id": "ce203479-b8d7-4d99-863d-6537cd9113f1",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/llm/usage",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "llm",
+                            "usage"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "e7212c3f-0a6d-41a7-8139-c2b4343c2158"
+                },
+                {
+                  "name": "models",
+                  "item": [
+                    {
+                      "name": "List Models",
+                      "id": "66e54932-d2b0-42b9-92da-b309661ada0e",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/llm/models",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "llm",
+                            "models"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "53aa5636-70ce-4f46-8642-7b52fff14be3"
+                },
+                {
+                  "name": "providers",
+                  "item": [
+                    {
+                      "name": "List Providers",
+                      "id": "444f361a-6259-4a2e-b535-c2ac772599ac",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/llm/providers",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "llm",
+                            "providers"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "ba9866b7-9853-47da-b6db-d026d9f2e961"
+                },
+                {
+                  "name": "atp",
+                  "item": [
+                    {
+                      "name": "Process ATP via LLM",
+                      "id": "e9b0c07f-7ab3-4366-8f5c-599e5a0ed0f7",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"atpMessage\": {\n    \"header\": {\n      \"mode\": \"QUERY\",\n      \"context\": \"Process through LLM\",\n      \"priority\": \"MEDIUM\",\n      \"actionType\": \"ANALYZE\",\n      \"targetZone\": \"system\",\n      \"senderId\": \"api\"\n    },\n    \"payload\": {\n      \"content\": \"Analyze the current agent ecosystem\"\n    }\n  },\n  \"model\": \"claude-3-5-sonnet-20241022\",\n  \"agentId\": \"artemis\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/llm/atp",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "llm",
+                            "atp"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "630632d6-51d7-44ed-9533-c242f5292fc4"
+                },
+                {
+                  "name": "stream",
+                  "item": [
+                    {
+                      "name": "Stream Chat",
+                      "id": "eff3cb7b-2537-4310-9310-baaaae19e2d5",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Tell me about Artemis City\"\n    }\n  ],\n  \"model\": \"claude-3-5-sonnet-20241022\",\n  \"options\": {\n    \"max_tokens\": 1024,\n    \"stream\": true\n  }\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/llm/stream",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "llm",
+                            "stream"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "8e2ebf95-ee4c-40bd-ac47-b1a569b04efe"
+                },
+                {
+                  "name": "complete",
+                  "item": [
+                    {
+                      "name": "Text Completion",
+                      "id": "23b2f7bd-0e0e-4bac-8ed1-bc096f2843bd",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"prompt\": \"Complete this sentence: Artemis City is a\",\n  \"model\": \"claude-3-5-sonnet-20241022\",\n  \"options\": {\n    \"max_tokens\": 512\n  }\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/llm/complete",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "llm",
+                            "complete"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "ffa07bd9-859b-447f-b43c-9eb07f3b4b11"
+                }
+              ],
+              "id": "5d06f462-acff-4736-bcd4-b49f52ab7533"
+            },
+            {
+              "name": "memory",
+              "item": [
+                {
+                  "name": "context",
+                  "item": [
+                    {
+                      "name": "Clear Context",
+                      "id": "2259b39e-7a6e-4e0d-9a70-b11ecdcae347",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/memory/context",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "memory",
+                            "context"
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Get Context",
+                      "id": "e082ff3b-a95d-463e-9eba-ad79af231a2b",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/memory/context",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "memory",
+                            "context"
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Update Context",
+                      "id": "cb35d335-b47b-4fbd-a74f-4acd704e6745",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "PUT",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"key\": \"currentTask\",\n  \"value\": \"API development\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/memory/context",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "memory",
+                            "context"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "2a2a231a-44ee-49cf-9132-641deaff4b24"
+                },
+                {
+                  "name": "delete",
+                  "item": [
+                    {
+                      "name": "Delete File",
+                      "id": "28843833-ead7-499b-8d22-31fc78602f4a",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"path\": \"notes/example.md\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/memory/delete",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "memory",
+                            "delete"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "9f0499c7-9837-42bb-8a79-5be5ea89026f"
+                },
+                {
+                  "name": "stats",
+                  "item": [
+                    {
+                      "name": "Get Vault Stats",
+                      "id": "2c8508b1-c991-4aed-b8ca-e119c7b560c1",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/memory/stats",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "memory",
+                            "stats"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "682d9055-0686-4a27-9c06-70f13ec3765e"
+                },
+                {
+                  "name": "list",
+                  "item": [
+                    {
+                      "name": "List Files",
+                      "id": "0e10639b-bd8b-416d-b506-3cbe9041c9df",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"path\": \"\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/memory/list",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "memory",
+                            "list"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "219b2a94-8127-4f79-9e17-1e4abeaa7525"
+                },
+                {
+                  "name": "read",
+                  "item": [
+                    {
+                      "name": "Read File",
+                      "id": "50d91482-da2e-4364-b1b8-5a9c284088dd",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"path\": \"agents/artemis.md\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/memory/read",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "memory",
+                            "read"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "14707f5a-3dec-4a6f-ad87-34aedda05e15"
+                },
+                {
+                  "name": "search",
+                  "item": [
+                    {
+                      "name": "Search Vault",
+                      "id": "566d120e-43f4-44e4-9626-16658a0b1a31",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"query\": \"agent orchestration\",\n  \"path\": \"\",\n  \"tags\": [],\n  \"limit\": 10\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/memory/search",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "memory",
+                            "search"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "944cf3cc-dab0-4e70-a1e8-398e1d7e366a"
+                },
+                {
+                  "name": "write",
+                  "item": [
+                    {
+                      "name": "Write File",
+                      "id": "8f18455a-ab35-4b58-81bf-e7776978a1be",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"path\": \"notes/example.md\",\n  \"content\": \"# Example Note\\n\\nThis is an example note written via the API.\",\n  \"metadata\": {\n    \"tags\": [\n      \"example\",\n      \"api\"\n    ],\n    \"author\": \"api\"\n  }\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/memory/write",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "memory",
+                            "write"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "0710a5f8-5636-410d-880d-bb6f82a6f5a2"
+                }
+              ],
+              "id": "0e4b95ac-9bfe-49a9-9427-552a243f0d1a"
+            },
+            {
+              "name": "trust",
+              "item": [
+                {
+                  "name": "{entityId}",
+                  "item": [
+                    {
+                      "name": "can-perform",
+                      "item": [
+                        {
+                          "name": "Check Can Perform",
+                          "id": "b906985a-2c8d-4bb2-9fd6-edd3793ef7bd",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "method": "POST",
+                            "header": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              }
+                            ],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\n  \"operation\": \"write\"\n}",
+                              "options": {
+                                "raw": {
+                                  "headerFamily": "json",
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/trust/:entityId/can-perform",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "trust",
+                                ":entityId",
+                                "can-perform"
+                              ],
+                              "variable": [
+                                {
+                                  "id": "5f4c599e-fcf8-4933-b404-4a5293420fdd",
+                                  "key": "entityId",
+                                  "value": "{{entityId}}"
+                                }
+                              ]
+                            }
+                          },
+                          "response": []
+                        }
+                      ],
+                      "id": "4ac80dfe-5ad6-4e4f-b748-0eb620a579e1"
+                    },
+                    {
+                      "name": "permissions",
+                      "item": [
+                        {
+                          "name": "Get Permissions",
+                          "id": "a8405861-b5f3-4f76-804b-3a73fcb5af3e",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "method": "GET",
+                            "header": [],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/trust/:entityId/permissions",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "trust",
+                                ":entityId",
+                                "permissions"
+                              ],
+                              "variable": [
+                                {
+                                  "id": "a85d6fbb-9ef0-4b4b-b83a-5e7e908446f7",
+                                  "key": "entityId",
+                                  "value": "{{entityId}}"
+                                }
+                              ]
+                            }
+                          },
+                          "response": []
+                        }
+                      ],
+                      "id": "216ecefc-795a-4fff-ac4c-c50734729ea1"
+                    },
+                    {
+                      "name": "failure",
+                      "item": [
+                        {
+                          "name": "Record Failure",
+                          "id": "ef314136-7d0f-41e1-b949-d39c5131f0c2",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "method": "POST",
+                            "header": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              }
+                            ],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\n  \"amount\": 0.05\n}",
+                              "options": {
+                                "raw": {
+                                  "headerFamily": "json",
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/trust/:entityId/failure",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "trust",
+                                ":entityId",
+                                "failure"
+                              ],
+                              "variable": [
+                                {
+                                  "id": "4e907dae-8224-451c-9638-12d3e7def3ba",
+                                  "key": "entityId",
+                                  "value": "{{entityId}}"
+                                }
+                              ]
+                            }
+                          },
+                          "response": []
+                        }
+                      ],
+                      "id": "337b0959-fb47-4997-a9a2-498a6866f178"
+                    },
+                    {
+                      "name": "success",
+                      "item": [
+                        {
+                          "name": "Record Success",
+                          "id": "1f7841aa-7fb9-43d3-8cb3-28f957d1249d",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "method": "POST",
+                            "header": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              }
+                            ],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\n  \"amount\": 0.02\n}",
+                              "options": {
+                                "raw": {
+                                  "headerFamily": "json",
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/trust/:entityId/success",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "trust",
+                                ":entityId",
+                                "success"
+                              ],
+                              "variable": [
+                                {
+                                  "id": "3b56b3a0-c2fd-459c-b89e-46b7982088f5",
+                                  "key": "entityId",
+                                  "value": "{{entityId}}"
+                                }
+                              ]
+                            }
+                          },
+                          "response": []
+                        }
+                      ],
+                      "id": "565104da-3a6d-462e-9df9-0b6ecaa15ff0"
+                    },
+                    {
+                      "name": "Get Trust Score",
+                      "id": "162edeb6-6912-4624-acb8-a3eb370f912b",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/trust/:entityId",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "trust",
+                            ":entityId"
+                          ],
+                          "variable": [
+                            {
+                              "id": "4956f4da-e305-4896-a63a-1a1e3a8f12a6",
+                              "key": "entityId",
+                              "value": "{{entityId}}"
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Set Trust Score",
+                      "id": "d2ec2a7d-6696-429b-9b3c-b728d58a74d6",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "PUT",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"score\": 0.85,\n  \"entityType\": \"agent\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/trust/:entityId",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "trust",
+                            ":entityId"
+                          ],
+                          "variable": [
+                            {
+                              "id": "d97e080b-4ae2-4ba4-8f70-e268e6abc448",
+                              "key": "entityId",
+                              "value": "{{entityId}}"
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "94ab1cb8-24b2-45c1-84fb-c17a56ca4639"
+                },
+                {
+                  "name": "hebbian",
+                  "item": [
+                    {
+                      "name": "weights",
+                      "item": [
+                        {
+                          "name": "Get Hebbian Weights",
+                          "id": "ff94c5c1-acc9-450a-b9cb-22ab76f1cf87",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "method": "GET",
+                            "header": [],
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/trust/hebbian/weights",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "trust",
+                                "hebbian",
+                                "weights"
+                              ]
+                            }
+                          },
+                          "response": []
+                        },
+                        {
+                          "name": "Update Hebbian Weight",
+                          "id": "93297199-e953-4736-87f7-4d76525e94cd",
+                          "protocolProfileBehavior": {
+                            "disableBodyPruning": true
+                          },
+                          "request": {
+                            "method": "PUT",
+                            "header": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              }
+                            ],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\n  \"agent1\": \"artemis\",\n  \"agent2\": \"packrat\",\n  \"delta\": 0.05\n}",
+                              "options": {
+                                "raw": {
+                                  "headerFamily": "json",
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseUrl}}/api/v1/trust/hebbian/weights",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "api",
+                                "v1",
+                                "trust",
+                                "hebbian",
+                                "weights"
+                              ]
+                            }
+                          },
+                          "response": []
+                        }
+                      ],
+                      "id": "f8fa677c-d0e5-434f-8d3e-9a868d26480c"
+                    }
+                  ],
+                  "id": "556cad2f-7d80-47f3-871e-823a0d77d496"
+                },
+                {
+                  "name": "levels",
+                  "item": [
+                    {
+                      "name": "Get Trust Levels",
+                      "id": "6b48b73f-1bf5-46a9-9661-dcf01b561c45",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/trust/levels",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "trust",
+                            "levels"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "f32969a3-660b-42d6-946b-fb7a93c37576"
+                },
+                {
+                  "name": "report",
+                  "item": [
+                    {
+                      "name": "Get Trust Report",
+                      "id": "41eb7813-747a-46e7-918b-7ae81f25e5cd",
+                      "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                      },
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{baseUrl}}/api/v1/trust/report",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "trust",
+                            "report"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ],
+                  "id": "769b89cb-1af4-4cbe-b364-49f22bdd4b18"
+                }
+              ],
+              "id": "c2178284-9d42-454f-a47b-c0a8af9479a6"
+            }
+          ],
+          "id": "8cfb31ef-72a0-4618-86c0-e3e36f514c7d"
+        }
+      ],
+      "id": "8f7b0826-5518-4463-87e3-4fc30a922956"
+    },
+    {
+      "name": "health",
+      "item": [
+        {
+          "name": "detailed",
+          "item": [
+            {
+              "name": "Detailed Health Check",
+              "id": "dd2af48e-80ce-4df6-8c4b-10f88ca36c51",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/health/detailed",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "health",
+                    "detailed"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ],
+          "id": "a24a7bd3-c47b-4802-9afd-7f8d5df67be6"
+        },
+        {
+          "name": "live",
+          "item": [
+            {
+              "name": "Liveness Probe",
+              "id": "19a4ab28-46e5-4606-b6c9-c097318ae599",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/health/live",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "health",
+                    "live"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ],
+          "id": "ee41b37e-7004-4bed-b7dc-884bb4f403aa"
+        },
+        {
+          "name": "ready",
+          "item": [
+            {
+              "name": "Readiness Probe",
+              "id": "db6be560-febb-4d07-bc91-c4dafb05f913",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/health/ready",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "health",
+                    "ready"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ],
+          "id": "e827da5c-4294-4102-9726-4ba64d033cd1"
+        },
+        {
+          "name": "Health Check",
+          "id": "257e3ee9-0dd0-4d8b-8581-ec9125ea7304",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "ffb48fc5-ceda-45a8-b914-4dd66265c363"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "id": "346a7771-cf00-4e34-bc03-d95a3e398cb8",
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "id": "1c98b9c1-70d5-4b6f-897e-f78b919c18ef",
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ]
+}

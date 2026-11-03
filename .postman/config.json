@@ -1,0 +1,21 @@
+{
+  "workspace": {
+    "id": "4ee52e93-6a5c-4975-b12e-75edb42d042b"
+  },
+  "entities": {
+    "collections": [
+      "../postman/collections/New Collection_58747749-1a1a2650-62a1-4a08-bd04-3d83f8d5a5bd.postman_collection.json",
+      "../postman/collections/New Collection_58747749-51f207cf-4187-4220-a674-315b3615abf8.postman_collection.json",
+      "../postman/collections/Artemis City API_58747749-7035a82d-59e9-4a03-ac56-68265992b5ff.postman_collection.json",
+      "../postman/collections/Artemis City API_58747749-75edc075-a46a-4bd9-af8a-a3788e598fa2.postman_collection.json",
+      "../postman/collections/Artemis City API_58747749-eb855f62-20b7-4aaa-a0b6-005204338430.postman_collection.json"
+    ],
+    "environments": [
+      "../postman/environments/Test_58747749-03043d64-488c-463d-8c9a-960b3506d95b.postman_environment.json",
+      "../postman/environments/TEst_58747749-b76ed9c9-8e0e-4abc-9d36-a916ce388377.postman_environment.json"
+    ],
+    "specs": [],
+    "flows": [],
+    "globals": []
+  }
+}
