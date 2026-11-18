@@ -2,10 +2,11 @@
   "name": "ramble-on-mcp",
   "version": "1.5.0",
   "private": true,
-  "description": "Bundled MCP server for the ramble-on plugin (stdio transport).",
+  "description": "Ramble On MCP server: stdio for local use, Streamable HTTP for local or hosted use.",
   "scripts": {
     "mcp:stdio": "node mcp/bin/stdio.cjs",
-    "mcp:http": "node mcp/bin/http.cjs"
+    "mcp:http": "node mcp/bin/http.cjs",
+    "start:hosted": "RAMBLE_HOSTED=1 node mcp/bin/http.cjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

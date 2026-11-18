@@ -1,7 +1,7 @@
 /**
  * mcp/server.cjs
  *
- * Ramble On — local MCP HTTP server using the official `McpServer` API
+ * Ramble On — MCP HTTP server (local on loopback, or hosted with RAMBLE_HOSTED=1) using the official `McpServer` API
  * from `@modelcontextprotocol/sdk/server/mcp.js`. Each tool is registered
  * via `server.registerTool(name, {title, description, inputSchema, annotations}, cb)`
  * with a Zod input shape; per-request the SDK validates arguments before
@@ -26,6 +26,11 @@ const {
 } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
 
 const { CONFIG } = require('./env.cjs');
+const {
+  isHosted,
+  contextFromHeaders,
+  runWithContext,
+} = require('./request-context.cjs');
 const { ALL_TOOLS } = require('./tools/index.cjs');
 
 const SERVER_INFO = { name: 'ramble-on', version: '1.5.0' };
@@ -114,9 +119,13 @@ const handleMcpRequest = async (req, res) => {
     console.error('[ramble-on MCP] Transport error:', err);
   };
 
+  // Hosted: this request's own keys and settings, from its headers.
+  // Local: an empty context; settings come from the process environment.
+  const ctx = isHosted() ? contextFromHeaders(req.headers) : {};
+
   try {
     await server.connect(transport);
-    await transport.handleRequest(req, res);
+    await runWithContext(ctx, () => transport.handleRequest(req, res));
   } finally {
     await transport.close().catch(() => {});
     await server.close().catch(() => {});
@@ -147,7 +156,7 @@ const startMcpServer = async () => {
       writeJson(res, 200, {
         status: 'ok',
         server: SERVER_INFO.name,
-        port: CONFIG.port,
+        version: SERVER_INFO.version,
       });
       return;
     }
@@ -185,11 +194,13 @@ const startMcpServer = async () => {
       }
     };
     httpServer.once('error', onError);
-    httpServer.listen(CONFIG.port, '127.0.0.1', () => {
+    // Loopback only, unless this is the shared hosted server.
+    const host = isHosted() ? '0.0.0.0' : '127.0.0.1';
+    httpServer.listen(CONFIG.port, host, () => {
       httpServer.removeListener('error', onError);
       const toolNames = ALL_TOOLS.map((t) => t.name).join(', ');
       console.log(
-        `[ramble-on MCP] Server running at http://127.0.0.1:${CONFIG.port}`,
+        `[ramble-on MCP] Server running on ${host}:${CONFIG.port}${isHosted() ? ' (hosted mode)' : ''}`,
       );
       console.log(`[ramble-on MCP] Tools: ${toolNames}`);
       resolve();

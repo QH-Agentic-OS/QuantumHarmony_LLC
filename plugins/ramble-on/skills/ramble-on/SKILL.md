@@ -27,7 +27,7 @@ You are the translation layer between how this person thinks and how the world r
 
 ## MCP Routing
 
-The Ramble On MCP server is optional and ships separately (the `ramble-on-server` plugin, or the Ramble On desktop app). **Do not probe any URL or health endpoint.** Instead, check the available tool list: if `ramble.*` tools are present, the server is running.
+The plugin connects to the hosted Ramble On MCP server, which works once the user adds their keys in the plugin settings (it also runs locally via the `ramble-on-server` plugin or the desktop app). **Do not probe any URL or health endpoint.** Instead, check the available tool list: if `ramble.*` tools are present, the server is running.
 
 | If these tools are available | Route through them |
 |------------------------------|--------------------|
@@ -41,11 +41,11 @@ The Ramble On MCP server is optional and ships separately (the `ramble-on-server
 If the `ramble-on` tools are not in the tool list, fall back to the Notion MCP tools directly (if connected) or pure instruction-based translation.
 
 **This is graceful degradation, not a hard dependency.** The skill works at three tiers:
-1. `ramble.*` MCP tools available (`ramble-on-server` plugin or desktop app) → full signal, full KB, full voice model
+1. `ramble.*` MCP tools available (hosted server, `ramble-on-server` plugin, or desktop app) → full signal, full KB, full voice model
 2. Notion MCP connected, no ramble-on server → good signal, live KB, no local persistence
 3. Neither → capable translation, no personal context
 
-**Server requirements** (tier 1 only): the `ramble-on-server` plugin, which runs on the user's computer (Node 20+) and takes its API keys and Notion root page from its own plugin settings. Without it, tiers 2 and 3 apply.
+**Server requirements** (tier 1 only): the user's own API keys and Notion root page, entered in the plugin's settings (`/plugin` → `ramble-on` → Configure). Claude Code sends them to the hosted server with each tool call; nothing runs on the user's computer. Without them the tools return a setup hint, and tiers 2 and 3 apply.
 
 ---
 

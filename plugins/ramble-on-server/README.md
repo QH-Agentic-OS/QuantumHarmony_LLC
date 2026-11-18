@@ -1,8 +1,11 @@
 # Ramble On Server
 
-Local MCP server for the [Ramble On](../ramble-on) skill. It gives the skill full Notion knowledge-base context, your stored voice model, and translation, transcription, and video tools on the AI provider you choose. Install it alongside the `ramble-on` plugin; the skill works without it, with less personal context.
+Source for the Ramble On MCP server, which gives the [Ramble On](../ramble-on) skill full Notion knowledge-base context, your stored voice model, and translation, transcription, and video tools on the AI provider you choose.
 
-This plugin runs code on your computer, so it is distributed only through the Quantum Harmony marketplace, not Anthropic's plugin directory.
+The same code runs two ways:
+
+- **Hosted (what the `ramble-on` plugin uses):** one shared server on Render, at `https://ramble-on-mcp.onrender.com/mcp`. Each request carries the caller's own keys in headers.
+- **Local (this plugin):** a stdio server on your computer, for running without the hosted server. It's distributed only through the Quantum Harmony marketplace, not Anthropic's plugin directory. Don't enable it together with `ramble-on`'s hosted connection, or the tools appear twice.
 
 ## Tools
 
@@ -63,9 +66,28 @@ printf '%s' "$MY_KEY" | node mcp/bin/inspect-key.cjs ANTHROPIC_API_KEY
 
 `mcp/bin/http.cjs` (a loopback HTTP transport on port 3748) is kept for the Ramble On desktop app and is **not** registered or started by this plugin.
 
+## Running the hosted server
+
+Hosted mode is turned on with `RAMBLE_HOSTED=1`. In that mode the server:
+
+- listens on `0.0.0.0` at `$PORT` and serves MCP over Streamable HTTP at `/mcp` (stateless), with `/health` for health checks;
+- takes every key and setting from the request's headers, never from its own environment, so no operator keys are needed or used:
+
+| Header | Setting |
+|---|---|
+| `X-Notion-Api-Key` | Notion token |
+| `X-Ramble-Notion-Root` | Notion root page ID |
+| `X-Gemini-Api-Key` | Gemini key |
+| `X-Anthropic-Api-Key` | Anthropic key |
+| `X-OpenAI-Api-Key` | OpenAI key |
+| `X-AI-Provider` | `gemini`, `anthropic`, or `openai` |
+
+Render settings: root directory `plugins/ramble-on-server`, runtime Node, build `npm ci`, start `node mcp/bin/http.cjs`, environment `RAMBLE_HOSTED=1`, health check path `/health`.
+
 ## Changelog
 
 ### 1.5.0
+- Added hosted mode (`RAMBLE_HOSTED=1`): per-request keys from headers, public bind, `/health` reports the version. The Gemini video download now sends the key as a header instead of in the URL.
 - Split out of the `ramble-on` plugin (previously its bundled `mcp/` server, version 1.4.0). Configuration and behavior are unchanged, except that `ramble.get_skill` is removed: the skill now ships in the `ramble-on` plugin.
 
 ## License
