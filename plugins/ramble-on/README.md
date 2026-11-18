@@ -1,26 +1,16 @@
 # Ramble On
 
-Signal translation layer for fast, non-linear thinkers. Converts raw rambles, voice-note transcripts, and stream-of-consciousness input into polished notes, ATP blocks, or platform-ready posts — calibrated against a Notion-hosted voice model so the output sounds like you, not like a model.
+Signal translation layer for fast, non-linear thinkers. Ramble On turns raw rambles, voice-note transcripts, and stream-of-consciousness input into polished notes, ATP (Artemis Transmission Protocol) blocks, or platform-ready posts for Medium, Substack, LinkedIn, or a blog. It keeps your voice: the output should sound like you on your clearest day, not like a model.
 
 ## What's in the box
 
 | Component | Path | Purpose |
 |---|---|---|
-| Skill | `skills/ramble-on/` | Translation modes, voice calibration, KB routing logic |
-| MCP server | `mcp/` | Notion KB access, voice-model retrieval, AI-provider translation tools |
-| Server registration | `.mcp.json` | Auto-launches the server over stdio when the plugin enables |
+| Skill | `skills/ramble-on/SKILL.md` | Translation modes, voice calibration, KB routing |
+| Platform guide | `skills/ramble-on/references/platform-guides.md` | Structure and tone rules for each publishing platform |
+| Voice guide | `skills/ramble-on/references/voice-calibration.md` | How the skill learns and keeps your voice |
 
-## Tools exposed (when the server is running)
-
-- `ramble.translate`: raw input to a polished note, with Notion KB context
-- `ramble.to_atp`: raw input to an Artemis Transmission Protocol block
-- `ramble.to_platform_post`: raw input to a Medium, Substack, LinkedIn, or blog post
-- `ramble.kb_search` / `ramble.kb_write`: search, read, and write pages in your Notion KB
-- `ramble.get_voice_model`: reads your Voice Model page for calibration
-- `ramble.get_skill`: returns this plugin's SKILL.md
-- `ramble.generate_text`: low-level text completion on the configured provider
-- `ramble.transcribe_audio`: transcribes a base64 audio clip
-- `ramble.generate_video`: generates a short video from a prompt with Gemini Veo
+This plugin is instructions only. It contains no scripts, no server, and no dependencies.
 
 ## Install
 
@@ -29,60 +19,24 @@ Signal translation layer for fast, non-linear thinkers. Converts raw rambles, vo
 /plugin install ramble-on@quantum-harmony-marketplace
 ```
 
-Claude Code installs the server's Node.js dependencies (from `package-lock.json`) when it installs the plugin, so there is no separate `npm install` step. Node 20 or later is required.
+## How it works
 
-## Configuration
+Paste a brain dump, a dictation transcript, or rough notes and ask Claude to clean it up, translate it, or turn it into a post. The skill picks a mode (clean note, ATP block, or platform post), keeps your rhythm and vocabulary, and asks at most one question when the voice feels off.
 
-Claude Code asks for these values when you enable the plugin. Change them later with `/plugin`, then **Configure** on `ramble-on`. API keys are marked sensitive, so Claude Code keeps them in your system's secure credential store, not in `settings.json`. Every value is optional: the skill degrades gracefully without them.
+It uses whatever context is already available, in three tiers:
 
-| Option | Purpose |
-|---|---|
-| `notion_api_key` | Notion integration token for KB and voice-model access |
-| `notion_root_page` | ID of your Ramble On root page in Notion (share it with the integration) |
-| `gemini_api_key` | Default translation provider; also audio transcription and video generation |
-| `anthropic_api_key` | Optional provider, and the automatic fallback when the main provider fails |
-| `openai_api_key` | Optional provider |
-| `ai_provider` | `gemini` (default), `anthropic`, or `openai` |
-
-The server reads these values only from the environment that Claude Code passes it. It never reads your shell profile or keychain.
-
-### Provider fallback
-
-Text generation runs on the selected provider (`ai_provider`, default Gemini). If that provider fails with an auth error, a retired model (404), or a quota `429`, the server retries on Anthropic when an Anthropic key is set. The switch is logged to stderr and never touches stdout, which is the JSON-RPC channel.
+1. **Ramble On server tools (`ramble.*`) available:** full Notion KB context and your stored voice model. The server is optional and ships separately as the `ramble-on-server` plugin in the same marketplace.
+2. **A Notion connector, no server:** live KB context through your Notion connector.
+3. **Neither:** capable instruction-based translation with no personal context.
 
 ## Data and network use
 
-The server runs locally over stdio, launched by Claude Code. It opens no port and runs no background process after the session ends. It contacts only these services, and only when a tool that needs one is called and you have set that service's key:
-
-| Service | Endpoint | What is sent | When |
-|---|---|---|---|
-| Notion | `api.notion.com` | Search queries, page IDs, and the text you ask it to write | `kb_search`, `kb_write`, `get_voice_model`, and KB context for the translate tools |
-| Google Gemini | `generativelanguage.googleapis.com` (via the `@google/genai` SDK) | Your input text with KB context; audio clips; video prompts | Translate tools and `generate_text` on the Gemini provider; `transcribe_audio`; `generate_video` |
-| Anthropic | `api.anthropic.com` | Your input text with KB context | When Anthropic is the provider, or as the fallback |
-| OpenAI | `api.openai.com` | Your input text with KB context; audio clips | When OpenAI is the provider, or for transcription on OpenAI |
-
-Each request goes straight to that provider under your own API key and its terms. The plugin sends nothing to Quantum Harmony LLC or any other service, has no telemetry, and keeps no copy of your text. Anything it stores is what you ask `kb_write` to write into your own Notion workspace. Key values are never logged; at start-up the server checks each key's shape and prints only a masked fingerprint (prefix and length) to stderr when one looks malformed. To check a key yourself without storing it:
-
-```bash
-printf '%s' "$MY_KEY" | node mcp/bin/inspect-key.cjs ANTHROPIC_API_KEY
-```
-
-`mcp/bin/http.cjs` (a loopback HTTP transport on port 3748) is kept for the Ramble On desktop app and is **not** registered or started by this plugin.
-
-## Graceful degradation
-
-The skill works at three tiers — the server is an amplifier, not a dependency:
-
-1. **`ramble.*` tools available** → full signal, full KB, full voice model
-2. **Notion MCP connected, no server** → good signal, live KB, no local persistence
-3. **Neither** → capable instruction-based translation, no personal context
-
-## Requirements
-
-- Node 20+
-- Claude Code with plugin support
+The plugin itself runs nothing and sends nothing anywhere. It adds instructions that Claude follows inside your conversation. When you have a Notion connector or the optional Ramble On server connected, the skill may ask Claude to read or write your Notion pages through them; those tools disclose their own data handling.
 
 ## Changelog
+
+### 1.5.0
+- **Change:** Ramble On is now a skill-only plugin. The local MCP server moved to its own plugin, `ramble-on-server`, so the skill can be listed on its own.
 
 ### 1.4.0
 - **Fix:** The MCP server failed to start on a fresh install ("Cannot find module"), because its dependencies needed a manual `npm install`. `package.json` and `package-lock.json` now sit at the plugin root, so Claude Code installs them with the plugin.

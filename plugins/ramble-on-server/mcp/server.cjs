@@ -28,11 +28,11 @@ const {
 const { CONFIG } = require('./env.cjs');
 const { ALL_TOOLS } = require('./tools/index.cjs');
 
-const SERVER_INFO = { name: 'ramble-on', version: '1.4.0' };
+const SERVER_INFO = { name: 'ramble-on', version: '1.5.0' };
 
 /**
  * Default response wrapper. Tools may override this by exporting
- * `formatResponse(result)` — see `tools/get-skill.cjs` for an example
+ * `formatResponse(result)` to shape their own response, for example one
  * that also emits `structuredContent`.
  *
  * @param {unknown} result Handler return value.

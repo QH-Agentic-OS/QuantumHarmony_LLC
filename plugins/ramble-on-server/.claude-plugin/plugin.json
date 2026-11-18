@@ -1,0 +1,61 @@
+{
+  "name": "ramble-on-server",
+  "displayName": "Ramble On Server",
+  "version": "1.5.0",
+  "description": "Local MCP server for the Ramble On skill: Notion KB context, voice-model retrieval, and AI-provider translation, transcription, and video tools.",
+  "author": {
+    "name": "Quantum Harmony LLC"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "ramble-on",
+    "mcp",
+    "notion",
+    "voice"
+  ],
+  "homepage": "https://github.com/QH-Agentic-OS/QuantumHarmony_LLC/tree/main/plugins/ramble-on-server",
+  "repository": "https://github.com/QH-Agentic-OS/QuantumHarmony_LLC",
+  "mcpServers": "./.mcp.json",
+  "userConfig": {
+    "notion_api_key": {
+      "type": "string",
+      "title": "Notion integration token",
+      "description": "Lets the server read and write your Ramble On knowledge base and voice model in Notion. Leave empty to run without Notion.",
+      "sensitive": true,
+      "default": ""
+    },
+    "notion_root_page": {
+      "type": "string",
+      "title": "Ramble On root page ID",
+      "description": "ID of the Notion page that holds your Voice Model and other Ramble On pages. Share that page with your Notion integration.",
+      "default": ""
+    },
+    "gemini_api_key": {
+      "type": "string",
+      "title": "Google Gemini API key",
+      "description": "Key for the default translation provider. Also used for audio transcription and video generation.",
+      "sensitive": true,
+      "default": ""
+    },
+    "anthropic_api_key": {
+      "type": "string",
+      "title": "Anthropic API key",
+      "description": "Optional. Used when you pick Anthropic as the provider, and as the automatic fallback when the main provider fails.",
+      "sensitive": true,
+      "default": ""
+    },
+    "openai_api_key": {
+      "type": "string",
+      "title": "OpenAI API key",
+      "description": "Optional. Used only when you pick OpenAI as the provider.",
+      "sensitive": true,
+      "default": ""
+    },
+    "ai_provider": {
+      "type": "string",
+      "title": "AI provider",
+      "description": "Which provider runs translation: gemini, anthropic, or openai.",
+      "default": "gemini"
+    }
+  }
+}

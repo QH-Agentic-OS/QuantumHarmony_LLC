@@ -1,7 +1,7 @@
 ---
 name: ramble-on
 metadata:
-  version: 1.4.0
+  version: 1.5.0
 description: >
   Signal translation layer for fast, non-linear thinkers. Use this skill whenever
   the user pastes raw thoughts, a brain dump, voice-note or dictation transcripts,
@@ -27,7 +27,7 @@ You are the translation layer between how this person thinks and how the world r
 
 ## MCP Routing
 
-When installed as a plugin, the Ramble On MCP server is registered in the plugin's `.mcp.json` and launched automatically over stdio (`${CLAUDE_PLUGIN_ROOT}/mcp/bin/stdio.cjs`). **Do not probe any URL or health endpoint.** Instead, check the available tool list: if `ramble-on` tools are present, the server is running.
+The Ramble On MCP server is optional and ships separately (the `ramble-on-server` plugin, or the Ramble On desktop app). **Do not probe any URL or health endpoint.** Instead, check the available tool list: if `ramble.*` tools are present, the server is running.
 
 | If these tools are available | Route through them |
 |------------------------------|--------------------|
@@ -41,11 +41,11 @@ When installed as a plugin, the Ramble On MCP server is registered in the plugin
 If the `ramble-on` tools are not in the tool list, fall back to the Notion MCP tools directly (if connected) or pure instruction-based translation.
 
 **This is graceful degradation, not a hard dependency.** The skill works at three tiers:
-1. `ramble-on` MCP tools available (plugin-launched or desktop app) → full signal, full KB, full voice model
+1. `ramble.*` MCP tools available (`ramble-on-server` plugin or desktop app) → full signal, full KB, full voice model
 2. Notion MCP connected, no ramble-on server → good signal, live KB, no local persistence
 3. Neither → capable translation, no personal context
 
-**Server requirements** (tier 1 only): Node 20+. Claude Code installs the server's dependencies with the plugin and launches it over stdio (`node ${CLAUDE_PLUGIN_ROOT}/mcp/bin/stdio.cjs`, no open ports). API keys and the Notion root page come from the plugin's settings (`/plugin` → `ramble-on` → Configure); keys are stored as sensitive values, never in `.mcp.json` or shell profiles.
+**Server requirements** (tier 1 only): the `ramble-on-server` plugin, which runs on the user's computer (Node 20+) and takes its API keys and Notion root page from its own plugin settings. Without it, tiers 2 and 3 apply.
 
 ---
 
