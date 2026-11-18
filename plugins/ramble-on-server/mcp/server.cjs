@@ -31,6 +31,22 @@ const {
   contextFromHeaders,
   runWithContext,
 } = require('./request-context.cjs');
+const {
+  handleOAuthRequest,
+  isOAuthEnabled,
+  readBearer,
+  sendUnauthorized,
+} = require('./oauth/server.cjs');
+
+// Tools a Notion sign-in (the connector) can use. The AI-provider tools need
+// the user's own provider keys, which only the plugin's settings can supply.
+const CONNECTOR_TOOLS = new Set([
+  'ramble.kb_search',
+  'ramble.kb_write',
+  'ramble.get_voice_model',
+]);
+
+const KEY_SETTINGS = ['NOTION_API_KEY', 'GEMINI_API_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY'];
 const { ALL_TOOLS } = require('./tools/index.cjs');
 
 const SERVER_INFO = { name: 'ramble-on', version: '1.5.0' };
@@ -52,10 +68,11 @@ const defaultFormatResponse = (result) => ({
  *
  * @returns {import('@modelcontextprotocol/sdk/server/mcp.js').McpServer}
  */
-const createMcpServer = () => {
+const createMcpServer = ({ only } = {}) => {
   const server = new McpServer(SERVER_INFO, { capabilities: { tools: {} } });
 
   for (const tool of ALL_TOOLS) {
+    if (only && !only.has(tool.name)) continue;
     const wrappedHandler = async (params) => {
       const result = await tool.handler(params || {});
       return tool.formatResponse
@@ -96,9 +113,9 @@ const applyCors = (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'Content-Type, Mcp-Session-Id, Mcp-Protocol-Version',
+    'Content-Type, Authorization, Mcp-Session-Id, Mcp-Protocol-Version',
   );
-  res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id');
+  res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id, WWW-Authenticate');
 };
 
 /**
@@ -111,17 +128,35 @@ const applyCors = (req, res) => {
  * @returns {Promise<void>}
  */
 const handleMcpRequest = async (req, res) => {
-  const server = createMcpServer();
+  // Work out who is calling and with which credentials.
+  //   Local: settings come from the process environment.
+  //   Hosted, Bearer token: a Notion sign-in through the connector; only the
+  //     Notion tools are offered.
+  //   Hosted, key headers: the plugin, with the user's own keys.
+  //   Hosted, neither: answer 401 so Claude starts the Notion sign-in (when
+  //     it's configured), otherwise serve the plugin tools with setup hints.
+  let ctx = {};
+  let only;
+  if (isHosted()) {
+    const bearer = readBearer(req.headers);
+    if (bearer.present) {
+      if (!bearer.notionToken) return sendUnauthorized(res, true);
+      ctx = { NOTION_API_KEY: bearer.notionToken };
+      only = CONNECTOR_TOOLS;
+    } else {
+      ctx = contextFromHeaders(req.headers);
+      const hasKeys = KEY_SETTINGS.some((k) => ctx[k]);
+      if (!hasKeys && isOAuthEnabled()) return sendUnauthorized(res);
+    }
+  }
+
+  const server = createMcpServer({ only });
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
   });
   transport.onerror = (err) => {
     console.error('[ramble-on MCP] Transport error:', err);
   };
-
-  // Hosted: this request's own keys and settings, from its headers.
-  // Local: an empty context; settings come from the process environment.
-  const ctx = isHosted() ? contextFromHeaders(req.headers) : {};
 
   try {
     await server.connect(transport);
@@ -151,6 +186,8 @@ const startMcpServer = async () => {
     }
 
     const pathname = (req.url || '').split('?')[0];
+
+    if (isHosted() && (await handleOAuthRequest(req, res))) return;
 
     if (req.method === 'GET' && pathname === '/health') {
       writeJson(res, 200, {

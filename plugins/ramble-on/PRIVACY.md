@@ -13,7 +13,8 @@ The Ramble On skill is instructions that Claude follows inside your conversation
 When Claude calls one of the `ramble.*` tools, Claude Code sends the hosted server:
 
 - the tool's input, such as the text you asked it to translate, an audio clip to transcribe, or a Notion search query;
-- the API keys and settings you entered in the plugin's settings, sent as HTTPS request headers: your Notion token, Notion root page ID, Gemini, Anthropic, and OpenAI keys, and your choice of provider.
+- either the API keys and settings you entered in the plugin's settings, sent as HTTPS request headers (your Notion token, Notion root page ID, Gemini, Anthropic, and OpenAI keys, and your choice of provider);
+- or, if you connect by signing in with Notion instead, an access token that Claude holds for you. Inside it, sealed so that only the Ramble On server can read it, is the Notion access that you granted on Notion's own consent screen, limited to the pages you chose there.
 
 ## How it is used
 
@@ -30,7 +31,7 @@ Each of those services handles your data under its own terms and privacy policy,
 
 ## What is stored
 
-Nothing. The server is stateless: it keeps no database, files, or copies of your input, its output, or your keys. It never writes your keys, input, or output to its logs; when a request fails, it logs only the error message returned by the failing service. Keys exist in memory only for the request that carried them. The only lasting record is anything you ask `kb_write` to write into your own Notion workspace.
+Nothing. The server is stateless: it keeps no database, files, or copies of your input, its output, your keys, or your Notion sign-in. When you sign in with Notion, your Notion access token and refresh token are encrypted (AES-256-GCM) into the tokens that Claude keeps for you, and the server only holds them in memory while it serves a request. Disconnecting Ramble On in Claude, or removing Ramble On's access in Notion's settings, ends that access. It never writes your keys, input, or output to its logs; when a request fails, it logs only the error message returned by the failing service. Keys exist in memory only for the request that carried them. The only lasting record is anything you ask `kb_write` to write into your own Notion workspace.
 
 The server runs on Render.[^6] Render's platform keeps standard request logs, such as time, path, status code, and IP address, under Render's own privacy policy. There is no analytics or telemetry, and nothing is sold or shared with anyone else.
 

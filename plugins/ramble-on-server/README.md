@@ -82,11 +82,35 @@ Hosted mode is turned on with `RAMBLE_HOSTED=1`. In that mode the server:
 | `X-OpenAI-Api-Key` | OpenAI key |
 | `X-AI-Provider` | `gemini`, `anthropic`, or `openai` |
 
+### Notion sign-in (MCP connector)
+
+When these are also set, the hosted server becomes an OAuth 2.1 authorization server with Notion as the sign-in, so it can be listed as an MCP connector and used on claude.ai, Desktop, mobile, and Cowork:
+
+| Variable | Value |
+|---|---|
+| `RAMBLE_PUBLIC_URL` | The server's public origin, e.g. `https://ramble-on-mcp.onrender.com` |
+| `NOTION_OAUTH_CLIENT_ID` | From a Notion public integration |
+| `NOTION_OAUTH_CLIENT_SECRET` | From the same integration (a secret) |
+| `RAMBLE_TOKEN_KEY` | 32 random bytes, base64 (`openssl rand -base64 32`); a secret. Changing it signs everyone out |
+
+The Notion integration's redirect URI is `$RAMBLE_PUBLIC_URL/oauth/notion/callback`.
+
+How it works:
+
+- An `/mcp` request with no keys and no token gets `401` with `WWW-Authenticate: Bearer resource_metadata=…`, which starts sign-in in Claude.
+- Metadata: `/.well-known/oauth-protected-resource/mcp` (RFC 9728) and `/.well-known/oauth-authorization-server` (RFC 8414). Clients register through stateless DCR at `/oauth/register`, or with a Client ID Metadata Document from a Claude host. Only Claude's redirect URIs are accepted: `https://claude.ai/api/mcp/auth_callback` and loopback `http://localhost|127.0.0.1:*/callback`.
+- `/oauth/authorize` shows a short consent page, then sends the user to Notion. `/oauth/notion/callback` exchanges Notion's code and returns our code to Claude. `/oauth/token` does the code exchange (PKCE S256 required) and refresh. Refreshes also refresh the Notion token.
+- Nothing is stored. Codes and tokens are AES-256-GCM sealed blobs that carry the Notion tokens. Access tokens last 1 hour, refresh tokens 90 days. Because nothing is stored, an old refresh token stays usable until it expires; rotating `RAMBLE_TOKEN_KEY` revokes everything.
+- A signed-in caller gets only `kb_search`, `kb_write`, and `get_voice_model`. Without a root page, `get_voice_model` finds a shared page titled "Voice Model", and `kb_write` creates new pages under a shared page titled "Ramble On".
+
+Test the flow with `npm run test:oauth` (Notion mocked).
+
 Render settings: root directory `plugins/ramble-on-server`, runtime Node, build `npm ci`, start `node mcp/bin/http.cjs`, environment `RAMBLE_HOSTED=1`, health check path `/health`.
 
 ## Changelog
 
 ### 1.5.0
+- Added Notion sign-in (OAuth) for use as an MCP connector, off until its environment variables are set.
 - Added hosted mode (`RAMBLE_HOSTED=1`): per-request keys from headers, public bind, `/health` reports the version. The Gemini video download now sends the key as a header instead of in the URL.
 - Split out of the `ramble-on` plugin (previously its bundled `mcp/` server, version 1.4.0). Configuration and behavior are unchanged, except that `ramble.get_skill` is removed: the skill now ships in the `ramble-on` plugin.
 
