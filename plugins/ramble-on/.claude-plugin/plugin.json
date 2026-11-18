@@ -6,7 +6,7 @@
   "author": {
     "name": "Quantum Harmony LLC"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "keywords": ["writing", "translation", "atp", "notion", "voice", "publishing"],
   "homepage": "https://github.com/QH-Agentic-OS/QuantumHarmony_LLC/tree/main/plugins/ramble-on",
   "repository": "https://github.com/QH-Agentic-OS/QuantumHarmony_LLC",

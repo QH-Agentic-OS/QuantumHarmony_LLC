@@ -89,6 +89,7 @@ The skill works at three tiers — the server is an amplifier, not a dependency:
 - **Change:** API keys and settings now come from the plugin's own configuration (`userConfig`, with keys stored as sensitive) instead of the shell environment and macOS Keychain. The `sidecar.sh` and `seed-keychain.sh` scripts are removed, and the server is launched directly with `node`.
 - **Change:** The Notion root page is now a setting (`notion_root_page`) instead of a built-in page ID.
 - **Fix:** `ramble.get_skill` read a path outside the plugin; it now reads `skills/ramble-on/SKILL.md`.
+- **License:** Apache 2.0, matching the rest of the repository (the manifest said MIT). `LICENSE` is now in the plugin folder.
 - **Docs:** Added a data and network use section, the full tool list, and the marketplace install line.
 
 ### 1.3.0
@@ -103,6 +104,10 @@ The skill works at three tiers — the server is an amplifier, not a dependency:
   stderr at spawn if a stored key is malformed.
 - **Chore:** Removed the legacy root `plugins/.mcp.json` (superseded by the
   sidecar launcher in this plugin's `.mcp.json`).
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).
 
 ## Attribution
 
