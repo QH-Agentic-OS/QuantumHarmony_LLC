@@ -39,7 +39,7 @@ const resolveSkillPath = () => {
     );
     return packagedPath;
   }
-  return path.join(__dirname, '..', '..', '..', 'ramble-on', SKILL_FILENAME);
+  return path.join(__dirname, '..', '..', 'skills', 'ramble-on', SKILL_FILENAME);
 };
 
 /**

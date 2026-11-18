@@ -1,7 +1,7 @@
 ---
 name: ramble-on
 metadata:
-  version: 1.3.0
+  version: 1.4.0
 description: >
   Signal translation layer for fast, non-linear thinkers. Use this skill whenever
   the user pastes raw thoughts, a brain dump, voice-note or dictation transcripts,
@@ -45,7 +45,7 @@ If the `ramble-on` tools are not in the tool list, fall back to the Notion MCP t
 2. Notion MCP connected, no ramble-on server → good signal, live KB, no local persistence
 3. Neither → capable translation, no personal context
 
-**Server requirements** (tier 1 only): Node 18+, `npm install` run once in the plugin's `mcp/` directory. The server launches as a **sidecar** via `mcp/bin/sidecar.sh` — spawned and torn down by the MCP client, stdio-only (no open ports). Secrets resolve at spawn time in order: environment → macOS Keychain (service `ramble-on-mcp`, seeded once via `mcp/bin/seed-keychain.sh`) → `.env.local`. API keys never live in `.mcp.json` or shell profiles.
+**Server requirements** (tier 1 only): Node 20+. Claude Code installs the server's dependencies with the plugin and launches it over stdio (`node ${CLAUDE_PLUGIN_ROOT}/mcp/bin/stdio.cjs`, no open ports). API keys and the Notion root page come from the plugin's settings (`/plugin` → `ramble-on` → Configure); keys are stored as sensitive values, never in `.mcp.json` or shell profiles.
 
 ---
 

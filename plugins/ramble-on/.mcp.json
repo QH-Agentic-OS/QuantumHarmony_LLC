@@ -1,8 +1,16 @@
 {
   "mcpServers": {
     "ramble-on": {
-      "command": "sh",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/bin/sidecar.sh"]
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/bin/stdio.cjs"],
+      "env": {
+        "NOTION_API_KEY": "${user_config.notion_api_key}",
+        "RAMBLE_NOTION_ROOT": "${user_config.notion_root_page}",
+        "GEMINI_API_KEY": "${user_config.gemini_api_key}",
+        "ANTHROPIC_API_KEY": "${user_config.anthropic_api_key}",
+        "OPENAI_API_KEY": "${user_config.openai_api_key}",
+        "AI_PROVIDER": "${user_config.ai_provider}"
+      }
     }
   }
 }
