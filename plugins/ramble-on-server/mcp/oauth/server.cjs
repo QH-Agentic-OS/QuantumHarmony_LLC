@@ -90,7 +90,7 @@ const sendHtml = (res, status, title, inner) =>
       'Referrer-Policy': 'no-referrer',
     },
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>
-<style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;line-height:1.5;color:#1a1a1a}button{font:inherit;padding:.6rem 1.2rem;border-radius:.4rem;border:0;background:#1a1a1a;color:#fff;cursor:pointer}.warn{background:#fff4d6;padding:.6rem .8rem;border-radius:.4rem}</style>
+<style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;line-height:1.5;color:#1a1a1a}button,a.button{display:inline-block;font:inherit;padding:.6rem 1.2rem;border-radius:.4rem;border:0;background:#1a1a1a;color:#fff;cursor:pointer;text-decoration:none}.warn{background:#fff4d6;padding:.6rem .8rem;border-radius:.4rem}</style>
 </head><body>${inner}</body></html>`,
   );
 
@@ -247,6 +247,24 @@ const register = async (req, res) => {
   });
 };
 
+/**
+ * Notion's authorize URL for one sign-in. The sign-in's details travel
+ * sealed in `state`, so nothing is stored.
+ *
+ * @param {object} flow Client id, redirect URI, PKCE challenge and state.
+ * @returns {string}
+ */
+const notionAuthorizeUrl = (flow) => {
+  const u = new URL(NOTION_AUTHORIZE_URL);
+  u.searchParams.set('client_id', process.env.NOTION_OAUTH_CLIENT_ID);
+  u.searchParams.set('response_type', 'code');
+  u.searchParams.set('owner', 'user');
+  u.searchParams.set('redirect_uri', notionCallbackUrl());
+  const { exp: _exp, ...rest } = flow;
+  u.searchParams.set('state', seal('state', { ...rest, exp: now() + FLOW_TTL }));
+  return u.toString();
+};
+
 /** GET /oauth/authorize: validate, then show the consent page. */
 const authorizePage = async (req, res, url) => {
   const p = url.searchParams;
@@ -264,13 +282,12 @@ const authorizePage = async (req, res, url) => {
   if (p.get('response_type') !== 'code') return back('unsupported_response_type');
   if (!p.get('code_challenge') || p.get('code_challenge_method') !== 'S256') return back('invalid_request');
 
-  const flow = seal('flow', {
+  const flowPayload = {
     cid: clientId,
     ru: redirectUri,
     cc: p.get('code_challenge'),
     st: p.get('state') || null,
-    exp: now() + FLOW_TTL,
-  });
+  };
   const host = new URL(redirectUri).host;
   const loopback = isLoopback(new URL(redirectUri));
   return sendHtml(
@@ -281,24 +298,22 @@ const authorizePage = async (req, res, url) => {
 <p>Ramble On will let Claude read your voice model and search, read and write the Notion pages you choose on the next screen. You'll be sent back to <strong>${escapeHtml(host)}</strong>.</p>
 ${loopback ? '<p class="warn">This sign-in returns to a program on your own computer. Continue only if you started it from Claude Code.</p>' : ''}
 <p>Ramble On stores nothing. Your Notion access is sealed inside the sign-in that Claude keeps.</p>
-<form method="post" action="/oauth/authorize"><input type="hidden" name="flow" value="${escapeHtml(flow)}"><button type="submit">Continue to Notion</button></form>`,
+<p><a class="button" href="${escapeHtml(notionAuthorizeUrl(flowPayload))}">Continue to Notion</a></p>`,
   );
 };
 
-/** POST /oauth/authorize: user pressed Continue; send them to Notion. */
+/**
+ * POST /oauth/authorize: kept for consent pages served before the link
+ * change. The page now links straight to Notion, because browsers block a
+ * form post that redirects to another site under `form-action 'self'`.
+ */
 const authorizeContinue = async (req, res) => {
   const form = await readForm(req);
   const flow = open('flow', form.flow);
   if (!flow) {
     return sendHtml(res, 400, 'Ramble On', '<h1>This sign-in has expired</h1><p>Start again from Claude.</p>');
   }
-  const u = new URL(NOTION_AUTHORIZE_URL);
-  u.searchParams.set('client_id', process.env.NOTION_OAUTH_CLIENT_ID);
-  u.searchParams.set('response_type', 'code');
-  u.searchParams.set('owner', 'user');
-  u.searchParams.set('redirect_uri', notionCallbackUrl());
-  u.searchParams.set('state', seal('state', { ...flow, exp: now() + FLOW_TTL }));
-  return send(res, 302, { Location: u.toString() }, '');
+  return send(res, 302, { Location: notionAuthorizeUrl(flow) }, '');
 };
 
 /** GET /oauth/notion/callback: Notion said yes or no; answer Claude. */
