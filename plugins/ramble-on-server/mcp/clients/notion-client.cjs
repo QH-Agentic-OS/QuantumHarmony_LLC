@@ -101,6 +101,27 @@ const kbSearch = async ({ query, max_results = 5 }) => {
 };
 
 /**
+ * Finds the first page the caller can see whose title contains `text`
+ * (case-insensitive). Used when no Ramble On root page is configured, as with
+ * a Notion sign-in, where the user picks which pages to share.
+ *
+ * @param {string} text
+ * @returns {Promise<{id: string, title: string} | null>}
+ */
+const findPageByTitle = async (text) => {
+  const result = await notionRequest('POST', '/search', {
+    query: text,
+    filter: { property: 'object', value: 'page' },
+    page_size: 10,
+  });
+  const wanted = text.toLowerCase();
+  const page = (result.results || []).find((p) =>
+    extractPageTitle(p).toLowerCase().includes(wanted),
+  );
+  return page ? { id: page.id, title: extractPageTitle(page) } : null;
+};
+
+/**
  * Fetches all child blocks of a Notion page, automatically paginating through
  * multiple pages of results when the page has more than 100 blocks.
  *
@@ -177,7 +198,7 @@ const kbWrite = async ({ page_id, title, content, mode = 'append' }) => {
 
   if (title) {
     const newPage = await notionRequest('POST', '/pages', {
-      parent: { page_id: page_id || requireRootPage() },
+      parent: { page_id: page_id || (await resolveParentPage()) },
       properties: {
         title: { title: [{ type: 'text', text: { content: title } }] },
       },
@@ -207,19 +228,20 @@ const kbWrite = async ({ page_id, title, content, mode = 'append' }) => {
 };
 
 /**
- * Returns the configured Ramble On root page ID, or throws a setup hint.
+ * Returns the page that kb_write creates new pages under: the configured
+ * root page, or else a shared page titled "Ramble On".
  *
- * @returns {string} The root page ID.
+ * @returns {Promise<string>} The parent page ID.
  */
-const requireRootPage = () => {
-  const rootPage = getRootPage();
-  if (!rootPage) {
-    throw new Error(
-      'No Ramble On root page set. Add the Notion page ID in the plugin settings (notion_root_page).',
-    );
-  }
-  return rootPage;
+const resolveParentPage = async () => {
+  if (getRootPage()) return getRootPage();
+  const page = await findPageByTitle('Ramble On');
+  if (page) return page.id;
+  throw new Error(
+    'No parent page for the new page. Pass page_id, set the Ramble On root page in the plugin settings, or share a page titled "Ramble On" with Ramble On.',
+  );
 };
+
 
 /**
  * Get the user's voice model from Notion.
@@ -228,12 +250,18 @@ const requireRootPage = () => {
  * when found.
  */
 const getVoiceModel = async () => {
-  const allBlocks = await fetchAllBlocks(requireRootPage());
-  const voicePage = allBlocks.find(
-    (block) =>
-      block.type === 'child_page' &&
-      block.child_page?.title?.toLowerCase().includes('voice model'),
-  );
+  let voicePage = null;
+  if (getRootPage()) {
+    const allBlocks = await fetchAllBlocks(getRootPage());
+    voicePage = allBlocks.find(
+      (block) =>
+        block.type === 'child_page' &&
+        block.child_page?.title?.toLowerCase().includes('voice model'),
+    );
+  } else {
+    // No root page configured: look through the pages shared with Ramble On.
+    voicePage = await findPageByTitle('Voice Model');
+  }
 
   if (!voicePage) {
     return {

@@ -56,6 +56,10 @@ Claude Code asks for these values when you enable the plugin. Change them later 
 
 Claude Code sends these values to the hosted server as HTTPS request headers on each tool call. The server uses them for that request only and never stores or logs them.
 
+### Sign in with Notion instead
+
+If you leave the keys empty and the hosted server has Notion sign-in turned on, Claude asks you to sign in with Notion the first time a `ramble.*` tool runs. You pick which Notion pages to share on Notion's own consent screen. That gives you the Notion tools (`kb_search`, `kb_write`, `get_voice_model`); Claude itself does the writing. The AI-provider tools need your own provider keys in the settings above.
+
 ### Provider fallback
 
 Text generation runs on the selected provider (`ai_provider`, default Gemini). If that provider fails with an auth error, a retired model (404), or a quota `429`, the server retries on Anthropic when an Anthropic key is set. The switch is logged to stderr and never touches stdout, which is the JSON-RPC channel.
