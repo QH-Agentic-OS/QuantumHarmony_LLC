@@ -51,10 +51,9 @@ const form = (o) => ({ method: 'POST', headers: { 'content-type': 'application/x
   r = await realFetch(`${B}/oauth/authorize?${q}`);
   const html = await r.text();
   ok(r.status === 200 && /localhost:54321/.test(html) && /program on your own computer/.test(html) && r.headers.get('x-frame-options') === 'DENY', 'consent page shows host, loopback warning, no framing');
-  const flow = html.match(/name="flow" value="([^"]+)"/)[1];
-  r = await realFetch(`${B}/oauth/authorize`, { ...form({ flow }), redirect: 'manual' });
-  const toNotion = new URL(r.headers.get('location'));
-  ok(r.status === 302 && toNotion.origin + toNotion.pathname === 'https://api.notion.com/v1/oauth/authorize' && toNotion.searchParams.get('owner') === 'user' && toNotion.searchParams.get('redirect_uri') === 'https://ramble-on-mcp.example/oauth/notion/callback', 'consent -> Notion authorize');
+  const href = html.match(/<a class="button" href="([^"]+)"/)[1].replace(/&amp;/g, '&');
+  const toNotion = new URL(href);
+  ok(toNotion.origin + toNotion.pathname === 'https://api.notion.com/v1/oauth/authorize' && toNotion.searchParams.get('owner') === 'user' && toNotion.searchParams.get('redirect_uri') === 'https://ramble-on-mcp.example/oauth/notion/callback' && !/<form/.test(html), 'consent page links straight to Notion (no form post blocked by form-action)');
   r = await realFetch(`${B}/oauth/notion/callback?error=access_denied&state=${encodeURIComponent(toNotion.searchParams.get('state'))}`, { redirect: 'manual' });
   let back = new URL(r.headers.get('location'));
   ok(back.searchParams.get('error') === 'access_denied' && back.searchParams.get('state') === 'xyz', 'Notion cancel -> access_denied to Claude');
