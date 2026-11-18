@@ -2,36 +2,16 @@
  * mcp/env.cjs
  *
  * Environment + provider configuration used by the MCP server and its
- * external clients. Owns env-file loading, provider normalization, API key
+ * external clients. Owns provider normalization, API key
  * lookup, and default model identifiers.
  */
 
 'use strict';
 
-const fs = require('fs');
-
-const loadLocalEnvFiles = () => {
-  for (const fileName of ['.env.local', 'env.local']) {
-    try {
-      const content = fs.readFileSync(fileName, 'utf8');
-      for (const line of content.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-        const eqIdx = trimmed.indexOf('=');
-        if (eqIdx === -1) continue;
-        const key = trimmed.slice(0, eqIdx).trim();
-        const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
-        if (key && !(key in process.env)) {
-          process.env[key] = val;
-        }
-      }
-    } catch (error) {
-      if (error?.code !== 'ENOENT') throw error;
-    }
-  }
-};
-
-loadLocalEnvFiles();
+// Configuration comes only from the environment that the MCP client passes to
+// this process (the plugin's userConfig values, set in .mcp.json). The server
+// does not read .env files from the working directory, which in Claude Code is
+// the user's project and may hold unrelated credentials.
 
 /**
  * Normalizes a provider identifier into one of the supported text backends.
@@ -60,8 +40,9 @@ const CONFIG = {
   notion: {
     apiBase: 'https://api.notion.com/v1',
     version: '2022-06-28',
-    rootPage:
-      process.env.RAMBLE_NOTION_ROOT || '2fe5c4d6-320e-8044-8797-d11505ac452d',
+    // The Ramble On root page in the user's own Notion workspace. Set from the
+    // plugin's `notion_root_page` option; there is no shared default.
+    rootPage: process.env.RAMBLE_NOTION_ROOT || '',
   },
 };
 
@@ -127,7 +108,7 @@ const warnOnMalformedKeys = () => {
     if (!report.ok) {
       process.stderr.write(
         `[ramble-on] WARNING: ${name} looks malformed (${report.fingerprint}): ${report.issues.join('; ')}. ` +
-          `Re-seed with bin/seed-keychain.sh.\n`,
+          `Re-enter it in the plugin's settings (/plugin → ramble-on → Configure).\n`,
       );
     }
   }
@@ -150,7 +131,7 @@ const getApiKey = (provider) => {
   if (provider === 'anthropic') {
     return process.env.ANTHROPIC_API_KEY || '';
   }
-  return process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+  return process.env.GEMINI_API_KEY || '';
 };
 
 /**
@@ -175,7 +156,7 @@ const requireApiKey = (provider) => {
 const requireNotionToken = () => {
   const token = process.env.NOTION_API_KEY;
   if (!token) {
-    throw new Error('NOTION_API_KEY not set. Add it to .env.local');
+    throw new Error('NOTION_API_KEY not set. Add your Notion token in the plugin settings.');
   }
   return token;
 };

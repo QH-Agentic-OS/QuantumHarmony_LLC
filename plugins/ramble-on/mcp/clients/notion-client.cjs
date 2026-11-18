@@ -177,7 +177,7 @@ const kbWrite = async ({ page_id, title, content, mode = 'append' }) => {
 
   if (title) {
     const newPage = await notionRequest('POST', '/pages', {
-      parent: { page_id: page_id || CONFIG.notion.rootPage },
+      parent: { page_id: page_id || requireRootPage() },
       properties: {
         title: { title: [{ type: 'text', text: { content: title } }] },
       },
@@ -207,13 +207,27 @@ const kbWrite = async ({ page_id, title, content, mode = 'append' }) => {
 };
 
 /**
+ * Returns the configured Ramble On root page ID, or throws a setup hint.
+ *
+ * @returns {string} The root page ID.
+ */
+const requireRootPage = () => {
+  if (!CONFIG.notion.rootPage) {
+    throw new Error(
+      'No Ramble On root page set. Add the Notion page ID in the plugin settings (notion_root_page).',
+    );
+  }
+  return CONFIG.notion.rootPage;
+};
+
+/**
  * Get the user's voice model from Notion.
  *
  * @returns {Promise<object>} The voice-model lookup result and page content
  * when found.
  */
 const getVoiceModel = async () => {
-  const allBlocks = await fetchAllBlocks(CONFIG.notion.rootPage);
+  const allBlocks = await fetchAllBlocks(requireRootPage());
   const voicePage = allBlocks.find(
     (block) =>
       block.type === 'child_page' &&
