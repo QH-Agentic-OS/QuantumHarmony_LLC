@@ -8,7 +8,7 @@
 'use strict';
 
 const https = require('https');
-const { CONFIG, requireNotionToken } = require('../env.cjs');
+const { CONFIG, requireNotionToken, getRootPage } = require('../env.cjs');
 
 /**
  * Sends an authenticated request to the Notion API.
@@ -212,12 +212,13 @@ const kbWrite = async ({ page_id, title, content, mode = 'append' }) => {
  * @returns {string} The root page ID.
  */
 const requireRootPage = () => {
-  if (!CONFIG.notion.rootPage) {
+  const rootPage = getRootPage();
+  if (!rootPage) {
     throw new Error(
       'No Ramble On root page set. Add the Notion page ID in the plugin settings (notion_root_page).',
     );
   }
-  return CONFIG.notion.rootPage;
+  return rootPage;
 };
 
 /**

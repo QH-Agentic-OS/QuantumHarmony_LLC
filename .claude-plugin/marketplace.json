@@ -52,8 +52,17 @@
     {
       "name": "ramble-on",
       "source": "./plugins/ramble-on",
-      "description": "Signal-translation layer: raw brain dumps to structured, voice-preserving output (ATP, platform posts, clean notes).",
-      "version": "1.4.0",
+      "description": "Signal-translation skill with a hosted MCP server: raw brain dumps to voice-preserving output (ATP, platform posts, clean notes).",
+      "version": "1.5.0",
+      "author": {
+        "name": "Quantum Harmony LLC"
+      }
+    },
+    {
+      "name": "ramble-on-server",
+      "source": "./plugins/ramble-on-server",
+      "description": "Local alternative to Ramble On's hosted MCP server: Notion KB context, voice model, and AI-provider tools.",
+      "version": "1.5.0",
       "author": {
         "name": "Quantum Harmony LLC"
       }

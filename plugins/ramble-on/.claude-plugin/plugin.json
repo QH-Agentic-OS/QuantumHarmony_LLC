@@ -1,15 +1,23 @@
 {
   "name": "ramble-on",
   "displayName": "Ramble On",
-  "version": "1.4.0",
-  "description": "Signal translation layer for fast, non-linear thinkers. Converts raw rambles, voice-note transcripts, and stream-of-consciousness input into polished notes, ATP blocks, or platform-ready posts, with a bundled MCP server for Notion KB context and voice-model retrieval.",
+  "version": "1.5.0",
+  "description": "Signal translation layer for fast, non-linear thinkers. Converts raw rambles, voice-note transcripts, and stream-of-consciousness input into polished notes, ATP blocks, or platform-ready posts that keep your voice, with an optional hosted server for Notion KB context and voice-model retrieval.",
   "author": {
     "name": "Quantum Harmony LLC"
   },
   "license": "Apache-2.0",
-  "keywords": ["writing", "translation", "atp", "notion", "voice", "publishing"],
+  "keywords": [
+    "writing",
+    "translation",
+    "atp",
+    "notion",
+    "voice",
+    "publishing"
+  ],
   "homepage": "https://github.com/QH-Agentic-OS/QuantumHarmony_LLC/tree/main/plugins/ramble-on",
   "repository": "https://github.com/QH-Agentic-OS/QuantumHarmony_LLC",
+  "privacyPolicyUrl": "https://github.com/QH-Agentic-OS/QuantumHarmony_LLC/blob/main/plugins/ramble-on/PRIVACY.md",
   "mcpServers": "./.mcp.json",
   "userConfig": {
     "notion_api_key": {

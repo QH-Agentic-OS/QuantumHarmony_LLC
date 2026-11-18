@@ -8,8 +8,11 @@
 
 'use strict';
 
-// Configuration comes only from the environment that the MCP client passes to
-// this process (the plugin's userConfig values, set in .mcp.json). The server
+const { readSetting, isHosted } = require('./request-context.cjs');
+
+// Keys and per-user settings come from readSetting(): the process environment
+// that the MCP client sets from the plugin's userConfig when run locally, or
+// the request's headers when hosted (see request-context.cjs). The server
 // does not read .env files from the working directory, which in Claude Code is
 // the user's project and may hold unrelated credentials.
 
@@ -27,8 +30,7 @@ const normalizeProvider = (provider) => {
 };
 
 const CONFIG = {
-  port: Number(process.env.RAMBLE_MCP_PORT) || 3748,
-  defaultProvider: normalizeProvider(process.env.AI_PROVIDER),
+  port: Number(process.env.PORT) || Number(process.env.RAMBLE_MCP_PORT) || 3748,
   models: {
     gemini: process.env.GEMINI_TEXT_MODEL || 'gemini-2.5-pro',
     openai: process.env.OPENAI_TEXT_MODEL || 'gpt-4.1-mini',
@@ -40,9 +42,6 @@ const CONFIG = {
   notion: {
     apiBase: 'https://api.notion.com/v1',
     version: '2022-06-28',
-    // The Ramble On root page in the user's own Notion workspace. Set from the
-    // plugin's `notion_root_page` option; there is no shared default.
-    rootPage: process.env.RAMBLE_NOTION_ROOT || '',
   },
 };
 
@@ -116,7 +115,21 @@ const warnOnMalformedKeys = () => {
 
 // The inspect-key tool sets this so its own reports aren't duplicated by the
 // module load-time warning.
-if (!process.env.RAMBLE_SUPPRESS_KEY_WARN) warnOnMalformedKeys();
+if (!process.env.RAMBLE_SUPPRESS_KEY_WARN && !isHosted()) warnOnMalformedKeys();
+
+/**
+ * Returns the provider to use when a tool call names none.
+ *
+ * @returns {'gemini' | 'openai' | 'anthropic'}
+ */
+const getDefaultProvider = () => normalizeProvider(readSetting('AI_PROVIDER'));
+
+/**
+ * Returns the Ramble On root page ID in the user's Notion workspace.
+ *
+ * @returns {string} The page ID, or an empty string when unset.
+ */
+const getRootPage = () => readSetting('RAMBLE_NOTION_ROOT');
 
 /**
  * Returns the configured API key for the requested provider.
@@ -126,12 +139,12 @@ if (!process.env.RAMBLE_SUPPRESS_KEY_WARN) warnOnMalformedKeys();
  */
 const getApiKey = (provider) => {
   if (provider === 'openai') {
-    return process.env.OPENAI_API_KEY || '';
+    return readSetting('OPENAI_API_KEY');
   }
   if (provider === 'anthropic') {
-    return process.env.ANTHROPIC_API_KEY || '';
+    return readSetting('ANTHROPIC_API_KEY');
   }
-  return process.env.GEMINI_API_KEY || '';
+  return readSetting('GEMINI_API_KEY');
 };
 
 /**
@@ -154,7 +167,7 @@ const requireApiKey = (provider) => {
  * @returns {string} The Notion API token.
  */
 const requireNotionToken = () => {
-  const token = process.env.NOTION_API_KEY;
+  const token = readSetting('NOTION_API_KEY');
   if (!token) {
     throw new Error('NOTION_API_KEY not set. Add your Notion token in the plugin settings.');
   }
@@ -167,6 +180,8 @@ module.exports = {
   getApiKey,
   requireApiKey,
   requireNotionToken,
+  getDefaultProvider,
+  getRootPage,
   inspectApiKey,
   KEY_SPECS,
 };

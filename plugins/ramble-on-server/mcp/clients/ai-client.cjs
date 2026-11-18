@@ -15,6 +15,7 @@ const {
   CONFIG,
   normalizeProvider,
   getApiKey,
+  getDefaultProvider,
   requireApiKey,
 } = require('../env.cjs');
 
@@ -134,7 +135,7 @@ const runProvider = (provider, prompt, geminiConfig) => {
  * @returns {Promise<string>}
  */
 const generateText = async ({ provider, prompt, geminiConfig }) => {
-  const selected = normalizeProvider(provider || CONFIG.defaultProvider);
+  const selected = normalizeProvider(provider || getDefaultProvider());
   try {
     return await runProvider(selected, prompt, geminiConfig);
   } catch (primaryError) {
@@ -155,7 +156,7 @@ const resolveSpeechProvider = (provider) => {
   if (getApiKey('openai')) return 'openai';
   if (getApiKey('gemini')) return 'gemini';
   throw new Error(
-    'No transcription provider available. Configure OPENAI_API_KEY or GEMINI_API_KEY.',
+    'No transcription provider available. Add an OpenAI or Gemini API key in the plugin settings.',
   );
 };
 
@@ -236,7 +237,7 @@ const transcribeWithOpenAI = async ({ audioBase64, mimeType }) => {
  * @returns {Promise<string>}
  */
 const transcribeAudio = async ({ provider, audioBase64, mimeType }) => {
-  const requested = normalizeProvider(provider || CONFIG.defaultProvider);
+  const requested = normalizeProvider(provider || getDefaultProvider());
   const selected = resolveSpeechProvider(requested);
   if (selected === 'gemini') return transcribeWithGemini({ audioBase64, mimeType });
   return transcribeWithOpenAI({ audioBase64, mimeType });
@@ -270,8 +271,11 @@ const generateVideo = async ({ prompt }) => {
     throw new Error('Video generation finished, but no video URL was returned.');
   }
 
-  const fetchUrl = `${downloadLink}&key=${apiKey}`;
-  const response = await fetch(fetchUrl);
+  // Send the key as a header, not in the URL, so it can't appear in any
+  // logged URL or error message.
+  const response = await fetch(downloadLink, {
+    headers: { 'x-goog-api-key': apiKey },
+  });
   if (!response.ok) {
     throw new Error(
       `Failed to fetch video file: ${response.status} ${response.statusText}`,

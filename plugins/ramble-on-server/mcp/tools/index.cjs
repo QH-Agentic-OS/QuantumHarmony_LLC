@@ -13,7 +13,6 @@ const toPlatformPost = require('./to-platform-post.cjs');
 const kbSearch = require('./kb-search.cjs');
 const kbWrite = require('./kb-write.cjs');
 const getVoiceModel = require('./get-voice-model.cjs');
-const getSkill = require('./get-skill.cjs');
 const generateText = require('./generate-text.cjs');
 const transcribeAudio = require('./transcribe-audio.cjs');
 const generateVideo = require('./generate-video.cjs');
@@ -25,7 +24,6 @@ const ALL_TOOLS = [
   kbSearch,
   kbWrite,
   getVoiceModel,
-  getSkill,
   generateText,
   transcribeAudio,
   generateVideo,
