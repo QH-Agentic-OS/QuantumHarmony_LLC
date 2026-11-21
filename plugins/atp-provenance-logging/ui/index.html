@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATP Mission Control — Artemis City</title>
+    <!-- Network-free build (atp-provenance-logging plugin).
+         No CDN, no runtime transpile, no eval, no inline script.
+         app.css  = precompiled Tailwind subset
+         app.js   = precompiled classic-runtime React app (synced from Prove)
+         vendor/  = React 18.3.1 UMD, copied unmodified from the npm packages
+                    (MIT, see vendor/LICENSE-react.txt; checksums in vendor/SHA256SUMS) -->
+    <link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Plain-HTML fallback: visible until app.js mounts successfully, so a load
+     failure produces a diagnostic panel instead of a blank page. app.js sets
+     data-reason ("react-missing" | "render-threw") and fills #fallback-detail. -->
+<div id="fallback">
+    <h2>ATP Mission Control failed to start</h2>
+    <p>The dashboard did not mount. Likely causes, in order:</p>
+    <ol>
+        <li><code>vendor/react.production.min.js</code> or
+            <code>vendor/react-dom.production.min.js</code> is missing — keep the
+            <code>vendor/</code> folder next to this page</li>
+        <li><code>app.js</code> missing or failed to parse</li>
+        <li>The page was opened as <code>file://</code> — serve it over HTTP
+            (<code>python3 scripts/prove_local.py serve</code>), or open
+            <code>prove-offline.html</code> for Import and Simulate without a server</li>
+    </ol>
+    <p>Check this page's <code>data-reason</code> attribute on the fallback panel
+       and the browser console for the underlying error.</p>
+    <pre id="fallback-detail"></pre>
+</div>
+
+<script src="vendor/react.production.min.js"></script>
+<script src="vendor/react-dom.production.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
