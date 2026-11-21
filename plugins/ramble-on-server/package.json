@@ -7,7 +7,9 @@
     "mcp:stdio": "node mcp/bin/stdio.cjs",
     "mcp:http": "node mcp/bin/http.cjs",
     "start:hosted": "RAMBLE_HOSTED=1 node mcp/bin/http.cjs",
-    "test:oauth": "node test/oauth-flow.test.cjs"
+    "test": "node test/oauth-flow.test.cjs && node test/favicon.test.cjs",
+    "test:oauth": "node test/oauth-flow.test.cjs",
+    "test:favicon": "node test/favicon.test.cjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
