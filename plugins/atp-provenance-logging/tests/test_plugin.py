@@ -421,6 +421,29 @@ class DashboardDefaultsTests(unittest.TestCase):
         call = trajectory._tool_call(0, "Write", {"file_path": "a.json", "content": secret}, None)
         self.assertNotIn("Confidential", json.dumps(call))
         self.assertEqual(call["args"]["content"]["sha256"], hashlib.sha256(secret.encode()).hexdigest())
+        cell = trajectory._tool_call(1, "NotebookEdit", {"notebook_path": "a.ipynb",
+                                                         "new_source": "sales_forecast = 12345"}, None)
+        self.assertNotIn("sales_forecast", json.dumps(cell))
+
+    def test_concurrent_starts_leave_a_stoppable_service(self):
+        with tempfile.TemporaryDirectory() as home:
+            env = dict(os.environ, HOME=home)
+            port, db = free_port(), Path(home) / "provenance.db"
+            cmd = [sys.executable, "-I", str(SCRIPTS / "prove_local.py"), "start", "--port", str(port), "--db", str(db)]
+            procs = [subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                     for _ in range(3)]
+            self.assertEqual([p.wait(30) for p in procs], [0, 0, 0])
+            stop = [sys.executable, "-I", str(SCRIPTS / "prove_local.py"), "stop", "--port", str(port)]
+            subprocess.run(stop, env=env, check=True, capture_output=True, timeout=30)
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            for _ in range(50):
+                try:
+                    opener.open(f"http://127.0.0.1:{port}/health", timeout=0.5)
+                    time.sleep(0.1)
+                except OSError:
+                    break
+            else:
+                self.fail("Prove still answering after stop")
 
     def test_dashboard_defaults_to_its_own_origin(self):
         js = (UI / "app.js").read_text()

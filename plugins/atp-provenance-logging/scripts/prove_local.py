@@ -247,7 +247,8 @@ def start(db: Path, host: str, port: int, wait: float = 5.0) -> int:
         else:  # pragma: no cover - Windows
             kwargs["creationflags"] = 0x00000008 | 0x00000200  # DETACHED | NEW_GROUP
         proc = subprocess.Popen(cmd, **kwargs)
-    pidfile(port).write_text(str(proc.pid))
+    # No pid file here: only the process that binds the port writes the run
+    # receipt (serve), so two concurrent starts cannot leave the loser's pid.
     deadline = time.monotonic() + wait
     while time.monotonic() < deadline:
         if health(port, host, timeout=0.5):
@@ -261,16 +262,23 @@ def start(db: Path, host: str, port: int, wait: float = 5.0) -> int:
 
 
 def stop(port: int) -> int:
-    pf = pidfile(port)
-    if not pf.exists():
-        print("no background Prove started by this plugin on that port")
-        return 0
+    """Stop the Prove that owns this port, using the pid it published itself."""
+    info, legacy = runfile(port), pidfile(port)
     try:
-        os.kill(int(pf.read_text().strip()), signal.SIGTERM)
+        pid = int(json.loads(info.read_text())["pid"])
+    except (OSError, ValueError, KeyError, TypeError):
+        try:
+            pid = int(legacy.read_text().strip())  # written by older builds
+        except (OSError, ValueError):
+            print("no background Prove started by this plugin on that port")
+            return 0
+    try:
+        os.kill(pid, signal.SIGTERM)
         print("stopped")
-    except (ProcessLookupError, ValueError):
-        print("not running (stale pid file removed)")
-    pf.unlink(missing_ok=True)
+    except (ProcessLookupError, PermissionError):
+        print("not running (stale run file removed)")
+        info.unlink(missing_ok=True)
+    legacy.unlink(missing_ok=True)
     return 0
 
 

@@ -35,7 +35,9 @@ MAX_STRING = 512
 MAX_LIST = 50
 MAX_KEYS = 50
 MAX_DEPTH = 2
-CONTENT_KEYS = {"content", "message", "body", "text", "new_string", "old_string", "prompt"}
+CONTENT_KEYS = {"content", "message", "body", "text", "new_string", "old_string", "prompt",
+                # plugin build: NotebookEdit and text-editor tool content too
+                "new_source", "file_text", "new_str", "old_str"}
 
 _TIMING = re.compile(r"^Created At: (\S+)\nCompleted At: (\S+)", re.M)
 _FILE_PATH = re.compile(r"^File Path: `?file://([^`\n]+)`?", re.M)
