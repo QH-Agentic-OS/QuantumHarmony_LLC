@@ -763,6 +763,10 @@ class ProvenanceStore:
         and every step located inside a chunk Prove actually consumed."""
         conn = self.connect(readonly=True)
         try:
+            # One read transaction: chunks, steps and actions must come from
+            # the same snapshot, or an ingest committing between the reads
+            # would look like missing rows.
+            conn.execute("BEGIN")
             chunks = conn.execute(
                 "SELECT * FROM trajectory_chunks WHERE parent_prov_id=? ORDER BY trajectory_id, chunk_no",
                 (parent_prov_id,),
@@ -780,6 +784,7 @@ class ProvenanceStore:
                     (parent_prov_id,),
                 )
             }
+            conn.rollback()
         finally:
             conn.close()
         step_ids = {step["prov_id"] for step in steps}

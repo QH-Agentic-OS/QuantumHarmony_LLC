@@ -1332,8 +1332,10 @@
           const verifyResp = await fetch(`${serviceUrl}/verify?parent_prov_id=${encodeURIComponent(parentProvId)}`, {
             signal: AbortSignal.timeout(5000)
           });
+          const verifyBody = verifyResp.ok ? await verifyResp.json() : null;
+          // Re-check after the body arrives: an import or attach meanwhile owns the verdict now.
           if (isStale()) return;
-          setServiceVerified(verifyResp.ok ? (await verifyResp.json()).verified === true : null);
+          setServiceVerified(verifyBody ? verifyBody.verified === true : null);
         } catch (verifyError) {
           if (!isStale()) setServiceVerified(null);
         }

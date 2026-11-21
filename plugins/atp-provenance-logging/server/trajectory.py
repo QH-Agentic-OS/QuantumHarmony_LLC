@@ -145,11 +145,19 @@ def _tool_call(
     as they are: a Bash command of ``"false"`` stays that string.
     """
     args = args if isinstance(args, dict) else {"value": args}
-    # Content stays as sent, so its digest is the digest of the file text.
-    decoded = {
-        str(k): v if not decode or str(k).lower() in CONTENT_KEYS else _decode_arg(v)
-        for k, v in args.items()
-    }
+
+    def arg(key: str, value: Any) -> Any:
+        if not decode:
+            return value
+        plain = _decode_arg(value)
+        # Content is digested as text: a JSON-encoded string decodes to its
+        # text (so it hashes like the same Claude call), but JSON file
+        # content is not turned into an object.
+        if key.lower() in CONTENT_KEYS and not isinstance(plain, str):
+            return value
+        return plain
+
+    decoded = {str(k): arg(str(k), v) for k, v in args.items()}
     call = {
         "call_index": index,
         "tool_name": bounded_str(str(name or "unknown")),
