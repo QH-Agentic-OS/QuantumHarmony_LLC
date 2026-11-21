@@ -105,11 +105,22 @@ def _transcript_chunks(path: str, offset: int, budget: int, max_records: int = M
             chunk = chunk[len(piece):]
 
 
+# The service refuses /ingest/trajectory bodies over 2 MiB. Bodies are sent as
+# UTF-8 (not \u escapes, which triple non-ASCII text); a chunk whose body
+# still does not fit is sent in fewer records, and a single record that does
+# not fit is sent as oversized_record.
+MAX_REQUEST_BYTES = 2 * 1024 * 1024 - 4096
+
+
+def _encode(payload: dict) -> bytes:
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+
+
 def _post(path: str, payload: dict) -> dict | None:
     try:
         req = urllib.request.Request(
             f"{SERVICE}{path}",
-            data=json.dumps(payload).encode("utf-8"),
+            data=_encode(payload),
             headers={"Content-Type": "application/json"},
             method="POST",
         )
@@ -130,7 +141,7 @@ def _post_status(path: str, payload: dict, timeout: float = 10) -> tuple[int, di
     try:
         req = urllib.request.Request(
             f"{SERVICE}{path}",
-            data=json.dumps(payload).encode("utf-8"),
+            data=_encode(payload),
             headers={"Content-Type": "application/json"},
             method="POST",
         )
@@ -348,12 +359,31 @@ def _ingest_transcript(
     while True:
         progressed = False
         for chunk in _transcript_chunks(transcript_path, cursor["offset"], budget):
-            payload = {
-                **payload_base(state, trajectory_id, parent_agent_ref, model),
-                "offset": cursor["offset"],
-                "prior_chain_sha256": cursor["chain"],
-                "chunk": _mask(chunk).decode("utf-8", errors="strict"),
-            }
+            piece = _mask(chunk)
+
+            def build(data: bytes) -> dict:
+                return {
+                    **payload_base(state, trajectory_id, parent_agent_ref, model),
+                    "offset": cursor["offset"],
+                    "prior_chain_sha256": cursor["chain"],
+                    "chunk": data.decode("utf-8", errors="strict"),
+                }
+
+            payload = build(piece)
+            while len(_encode(payload)) > MAX_REQUEST_BYTES and piece.count(b"\n") > 1:
+                # Too large once encoded: send the first half of its records.
+                cut = piece.rfind(b"\n", 0, len(piece) // 2)
+                if cut < 0:
+                    cut = piece.find(b"\n")
+                piece = piece[: cut + 1]
+                payload = build(piece)
+            if len(_encode(payload)) > MAX_REQUEST_BYTES:
+                sent = _send_oversized(state, transcript_path, trajectory_id, cursor, payload_base(
+                    state, trajectory_id, parent_agent_ref, model))
+                if not sent:
+                    return sent is None  # None: the record is still being written
+                progressed = True
+                break  # restart from the cursor past the oversized record
             status, body = _post_status("/ingest/trajectory", payload)
             if status == 409 and body and "expected_offset" in body and not retried:
                 cursor.update(offset=body["expected_offset"], chain=body.get("expected_prior_chain_sha256"))
@@ -370,6 +400,9 @@ def _ingest_transcript(
                 break  # nothing consumable yet (partial record)
             cursor.update(offset=body["consumed_to"], chain=body.get("chain_sha256"))
             _save_state(state)
+            if len(piece) < len(chunk):
+                progressed = True
+                break  # only part of this chunk was sent: read on from the cursor
         if not progressed:
             try:
                 remaining = Path(transcript_path).stat().st_size - cursor["offset"]
