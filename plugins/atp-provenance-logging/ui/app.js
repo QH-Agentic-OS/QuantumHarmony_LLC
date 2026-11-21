@@ -1158,6 +1158,9 @@
     // Bumped whenever the live polling effect is torn down, so a /chain
     // response that resolves after the user switches chains is dropped.
     const liveChainGenRef = useRef(0);
+    // Plugin build: the service's own /verify verdict for a live chain.
+    // null = not verified by a service (simulated or imported data).
+    const [serviceVerified, setServiceVerified] = useState(null);
     const validation = useMemo(() => runValidation(header), [header]);
 
     // Live chain enforcement (Steps 4-8) — reacts to log changes
@@ -1178,9 +1181,11 @@
         // Artemis MCP schema has no atp_response kind — last action is terminus (warn, counts complete)
         log_response: integrity.hasResponse ? 'pass' : isArtemis && hasChildren ? 'warn' : prev.log_response,
         schema_valid: schemaOk ? 'pass' : 'warn',
-        chain_complete: isArtemis ? integrity.exactlyOneParent && integrity.noOrphans && hasChildren ? 'pass' : integrity.orphanCount > 0 ? 'fail' : prev.chain_complete : integrity.valid && integrity.hasResponse ? 'pass' : integrity.orphanCount > 0 ? 'fail' : prev.chain_complete
+        // A service chain passes only on the service's /verify verdict (hash links,
+        // sequence, manifest refs). Structure alone, as in an import, is a warning.
+        chain_complete: isArtemis ? integrity.orphanCount > 0 || serviceVerified === false ? 'fail' : integrity.exactlyOneParent && integrity.noOrphans && hasChildren ? serviceVerified === true ? 'pass' : 'warn' : prev.chain_complete : integrity.valid && integrity.hasResponse ? 'pass' : integrity.orphanCount > 0 ? 'fail' : prev.chain_complete
       }));
-    }, [logs, parentProvId, chainProfile, rawSchemaValid]);
+    }, [logs, parentProvId, chainProfile, rawSchemaValid, serviceVerified]);
 
     // ── JSON Import handler ──────────────────────────────────
 
@@ -1226,6 +1231,7 @@
       } else if (format === 'claude_session') {
         const session = parseSessionSnapshot(data);
         setRawSchemaValid(null);
+      setServiceVerified(null);
         setImportedSession(session);
         setLogs([]);
         setParentProvId(session.identity.sessionId);
@@ -1303,6 +1309,15 @@
         setChainProfile('artemis');
         setLiveError(null);
         setServiceStatus('connected');
+        try {
+          const verifyResp = await fetch(`${serviceUrl}/verify?parent_prov_id=${encodeURIComponent(parentProvId)}`, {
+            signal: AbortSignal.timeout(5000)
+          });
+          if (isStale()) return;
+          setServiceVerified(verifyResp.ok ? (await verifyResp.json()).verified === true : null);
+        } catch (verifyError) {
+          if (!isStale()) setServiceVerified(null);
+        }
       } catch (error) {
         if (isStale()) return;
         setLiveError(`Live log stream unavailable: ${error.message}`);
@@ -1333,6 +1348,7 @@
       setIsRunning(false);
       setChainProfile('artemis');
       setRawSchemaValid(null);
+      setServiceVerified(null);
       setSourceMode('live');
       setParentProvId(pid);
       setView('timeline');
@@ -1396,6 +1412,7 @@
       setActionIndex(0);
       setChainState(Object.fromEntries(PROVENANCE_STEPS.map(s => [s.id, 'pending'])));
       setRawSchemaValid(null);
+      setServiceVerified(null);
       setSourceMode(mode);
       setLiveError(null);
       setChainProfile('skill');
@@ -1560,6 +1577,7 @@
       setNewLogId(null);
       setParentProvId(null);
       setRawSchemaValid(null);
+      setServiceVerified(null);
       setSourceMode(null);
       setLiveError(null);
       setImportedSession(null);

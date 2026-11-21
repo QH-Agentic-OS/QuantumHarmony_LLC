@@ -16,7 +16,7 @@ Changed for this public plugin build:
 | `provenance_core.py` | `/runtime/metadata` `artifact_hash` also looks for the dashboard at `../ui/app.js`. |
 | `hosted_service.py` | Serves the network-free dashboard from `../ui`, including `vendor/`. |
 | `manifest.py` | `EMITTERS` lists only what this plugin emits; private-stack sources removed. The `routing_memory` derived fields and collision entry are left out of the public build. Self-test examples use generic names. |
-| `ui/app.js` | Simulation agent profiles and sample paths use generic names. The service URL defaults to the page's own origin when served over HTTP(S). Imported/live chain entries keep the service's `status`, `error`, `phase` and recorded `input` instead of deriving them from `result`, `action_type` and `target`. |
+| `ui/app.js` | Simulation agent profiles and sample paths use generic names. The service URL defaults to the page's own origin when served over HTTP(S). Imported/live chain entries keep the service's `status`, `error`, `phase` and recorded `input` instead of deriving them from `result`, `action_type` and `target`. A service chain's integrity check passes only on the service's own `/verify` verdict; an import with no service shows a warning, not a pass. |
 | `ui/index.html` | From `atp-mission-control.html`; loads React from `vendor/` instead of a CDN. |
 
 Not included: the MCP server (`provenance_mcp.py`, needs the `mcp` package),

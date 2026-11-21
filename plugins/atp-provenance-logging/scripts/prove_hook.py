@@ -99,6 +99,37 @@ def reachable(url: str, token: str | None) -> bool:
         return False
 
 
+class session_lock:
+    """Exclusive interprocess lock on <state_dir>/<session>.lock (POSIX flock, Windows msvcrt)."""
+
+    def __init__(self, state_dir: Path, session_id: str):
+        safe = "".join(c if c.isalnum() or c in "-_." else "-" for c in session_id)[:120]
+        self.path = state_dir / f"{safe}.lock"
+        self.handle = None
+
+    def __enter__(self):
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.handle = open(self.path, "a+b")
+            if os.name == "posix":
+                import fcntl
+
+                fcntl.flock(self.handle, fcntl.LOCK_EX)
+            else:  # pragma: no cover - Windows
+                import msvcrt
+
+                self.handle.seek(0)
+                msvcrt.locking(self.handle.fileno(), msvcrt.LK_LOCK, 1)
+        except OSError as exc:
+            warn(f"could not lock session state ({exc}); continuing without the lock")
+        return self
+
+    def __exit__(self, *exc):
+        if self.handle:
+            self.handle.close()  # releases the lock
+        return False
+
+
 ACTIVE_DIR = Path.home() / ".prove" / "active-sessions"
 
 
@@ -221,7 +252,10 @@ def main() -> int:
     sys.path.insert(0, str(ROOT / "server"))
     import atp_hooks  # noqa: E402  (reads the environment set above)
 
-    rc = atp_hooks.main()
+    # One hook at a time per session: registration, cursor updates and the
+    # receipt must see each other's state, or two hooks can mint two roots.
+    with session_lock(Path(os.environ["PROVENANCE_STATE_DIR"]), hook.get("session_id") or "unknown-session"):
+        rc = atp_hooks.main()
     if event in ("session-start", "user-prompt"):
         publish_session(hook, Path(os.environ["PROVENANCE_STATE_DIR"]), url, mode)
     return rc

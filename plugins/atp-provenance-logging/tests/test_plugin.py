@@ -216,6 +216,29 @@ class LocalServiceTests(unittest.TestCase):
         self.assertTrue(json.loads(helper("verify", root))["verified"])
         self.assertNotEqual(helper("begin", "--new-root", "--context", "separate"), root)
 
+    def test_concurrent_hooks_register_one_root(self):
+        work = Path(self.tmp.name) / "race"
+        work.mkdir(exist_ok=True)
+        transcript = work / "t.jsonl"
+        transcript.write_text(json.dumps({"type": "user", "timestamp": "2026-01-01T00:00:00Z", "cwd": str(work),
+                                          "message": {"role": "user", "content": "go"}}) + "\n")
+        payload = json.dumps({"session_id": "race", "cwd": str(work), "transcript_path": str(transcript)})
+        env = dict(self.env, CLAUDE_PLUGIN_OPTION_SERVICE_URL=f"http://127.0.0.1:{self.port}",
+                   CLAUDE_PLUGIN_OPTION_LEDGER_PATH=str(self.db))
+        procs = [subprocess.Popen([sys.executable, "-I", str(SCRIPTS / "prove_hook.py"), "post-tool"],
+                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=env) for _ in range(6)]
+        for proc in procs:
+            proc.communicate(payload.encode(), timeout=60)
+        state = json.loads(next((Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session").glob("*/race.json")).read_text())
+        status, _, body = self.get(f"/verify?parent_prov_id={state['root_prov_id']}")
+        self.assertTrue(json.loads(body)["verified"])
+        self.assertEqual(json.loads(body)["trajectories"]["race"]["steps"], 1)
+        import sqlite3
+        with sqlite3.connect(self.db) as conn:
+            roots = conn.execute("SELECT COUNT(*) FROM agent_logs WHERE parent_prov_id IS NULL "
+                                 "AND canonical_body_json LIKE ?", ("%claude-code session race %",)).fetchone()[0]
+        self.assertEqual(roots, 1)
+
     def test_offline_mode_refuses_a_remote_service(self):
         result = self.hook("session-start", {"session_id": "x"}, mode="offline",
                            service_url="https://prove.example.com")
@@ -338,6 +361,7 @@ class DashboardDefaultsTests(unittest.TestCase):
         self.assertNotIn("'http://localhost:8787'", js)
         self.assertIn("e.phase || ARTEMIS_ACTION_TO_PHASE", js)
         self.assertIn("e.input && typeof e.input === 'object'", js)
+        self.assertIn("/verify?parent_prov_id=", js)  # live chains pass only on the service's verdict
 
 
 class RemoteBindTests(unittest.TestCase):
