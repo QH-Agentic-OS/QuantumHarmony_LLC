@@ -34,6 +34,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_DB = Path(os.environ.get("PROV_DB") or Path.home() / ".prove" / "provenance.db")  # as prove_local
 LOCAL_URL = "http://127.0.0.1:{port}"
 
 
@@ -56,6 +57,20 @@ def loopback(url: str) -> bool:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
         return False
+
+
+def destination_key(url: str) -> str:
+    """One key per ledger, whatever the spelling of its address.
+
+    Loopback aliases (localhost, 127.0.0.1, ::1) and the default ledger path
+    written out or left empty all name the same local ledger.
+    """
+    parts = urlsplit(url)
+    port = parts.port or (443 if parts.scheme == "https" else 80)
+    if loopback(url):
+        ledger = opt("LEDGER_PATH") or str(DEFAULT_DB)
+        return f"local:{port}|{Path(ledger).expanduser().resolve()}"
+    return f"{parts.scheme}://{(parts.hostname or '').lower()}:{port}{parts.path.rstrip('/')}"
 
 
 def refuse(reason: str) -> int:
@@ -279,7 +294,7 @@ def main() -> int:
     data = os.environ.get("CLAUDE_PLUGIN_DATA") or str(Path.home() / ".prove")
     # Cursor state belongs to one ledger: namespace it by destination so a
     # changed service_url or ledger_path registers a fresh root.
-    dest = hashlib.sha256(f"{url}|{opt('LEDGER_PATH')}".encode()).hexdigest()[:16]
+    dest = hashlib.sha256(destination_key(url).encode()).hexdigest()[:16]
     os.environ["PROVENANCE_STATE_DIR"] = str(Path(data) / "atp-session" / dest)
 
     sys.path.insert(0, str(ROOT / "server"))

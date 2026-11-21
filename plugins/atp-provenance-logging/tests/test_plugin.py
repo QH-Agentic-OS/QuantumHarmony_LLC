@@ -147,6 +147,54 @@ class LocalServiceTests(unittest.TestCase):
         self.assertEqual(report["capture_methods"], {"harness_transcript": 2})
         self.assertNotIn(b"abcdefghijklmnopqrst", self.db.read_bytes())
 
+    def _transcript(self, name, n):
+        work = Path(self.tmp.name) / name
+        work.mkdir(exist_ok=True)
+        transcript = work / "t.jsonl"
+        transcript.write_text("".join(json.dumps(
+            {"type": "user", "timestamp": f"2026-01-01T00:00:{i:02d}Z", "cwd": str(work),
+             "message": {"role": "user", "content": f"step {i}"}}) + "\n" for i in range(n)))
+        return work, transcript
+
+    def _verify(self, root):
+        return json.loads(self.get(f"/verify?parent_prov_id={root}")[2])
+
+    def test_address_aliases_share_one_root(self):
+        work, transcript = self._transcript("alias", 2)
+        payload = {"session_id": "alias", "cwd": str(work), "transcript_path": str(transcript)}
+        self.hook("session-start", payload)
+        self.hook("stop", payload, service_url=f"http://localhost:{self.port}/")
+        found = list((Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session").glob("*/alias.json"))
+        self.assertEqual(len(found), 1)
+        self.assertEqual(self._verify(json.loads(found[0].read_text())["root_prov_id"])["capture_methods"],
+                         {"harness_transcript": 2})
+
+    def test_a_new_root_for_the_same_session_still_captures(self):
+        work, transcript = self._transcript("reroot", 2)
+        payload = {"session_id": "reroot", "cwd": str(work), "transcript_path": str(transcript)}
+        self.hook("stop", payload)
+        for state in (Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session").glob("*/reroot.json"):
+            state.unlink()  # lost state: the next hook registers a second root
+        with transcript.open("a") as f:
+            f.write(json.dumps({"type": "user", "timestamp": "2026-01-01T00:01:00Z", "cwd": str(work),
+                                "message": {"role": "user", "content": "after"}}) + "\n")
+        result = self.hook("stop", payload)
+        self.assertNotIn("ingest failed", result.stdout)
+        state = json.loads(next((Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session").glob("*/reroot.json")).read_text())
+        self.assertTrue(state["trajectory_id"].startswith("reroot@"))
+        self.assertEqual(self._verify(state["root_prov_id"])["capture_methods"], {"harness_transcript": 3})
+
+    def test_a_continued_stop_still_captures(self):
+        work, transcript = self._transcript("continued", 1)
+        payload = {"session_id": "continued", "cwd": str(work), "transcript_path": str(transcript)}
+        self.hook("stop", payload)
+        with transcript.open("a") as f:
+            f.write(json.dumps({"type": "user", "timestamp": "2026-01-01T00:01:00Z", "cwd": str(work),
+                                "message": {"role": "user", "content": "final"}}) + "\n")
+        self.hook("stop", dict(payload, stop_hook_active=True))
+        state = json.loads(next((Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session").glob("*/continued.json")).read_text())
+        self.assertEqual(self._verify(state["root_prov_id"])["capture_methods"], {"harness_transcript": 2})
+
     def test_a_record_over_512_kib_is_still_captured(self):
         work = Path(self.tmp.name) / "big"
         work.mkdir(exist_ok=True)
@@ -444,6 +492,9 @@ class DashboardDefaultsTests(unittest.TestCase):
                     break
             else:
                 self.fail("Prove still answering after stop")
+
+    def test_dashboard_keeps_the_recorded_actor(self):
+        self.assertIn("actor: e.actor || e.agent_id || 'unknown'", (UI / "app.js").read_text())
 
     def test_dashboard_defaults_to_its_own_origin(self):
         js = (UI / "app.js").read_text()

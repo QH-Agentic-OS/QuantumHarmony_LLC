@@ -1047,7 +1047,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     return entries.map(e => ({
       prov_id: e.prov_id,
       parent_prov_id: e.parent_prov_id !== undefined ? e.parent_prov_id : null,
-      actor: e.agent_id || 'unknown',
+      actor: e.actor || e.agent_id || 'unknown',
       model: null,
       // The service's explicit phase wins; the action_type map is the legacy fallback.
       phase: e.kind === 'atp_prompt' ? 'atp_prompt' : e.target === 'atp_response' || e.phase === 'atp_response' ? 'atp_response' : e.phase || ARTEMIS_ACTION_TO_PHASE[e.action_type] || 'tool_call',

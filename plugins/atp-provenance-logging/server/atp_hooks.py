@@ -256,6 +256,14 @@ def _save_state(state: dict) -> None:
     _state_path(state["session_id"]).write_text(json.dumps(state, indent=2))
 
 
+_LAST_INGEST_ERROR: str | None = None
+
+
+def _main_tid(state: dict) -> str:
+    """Plugin build: the main trajectory id (namespaced after a root change)."""
+    return state.get("trajectory_id") or state["session_id"]
+
+
 def _ingest_transcript(
     state: dict,
     transcript_path: str | None,
@@ -302,6 +310,8 @@ def _ingest_transcript(
                 progressed = True
                 break  # restart iteration from the offset the service expects
             if status != 200 or not body:
+                global _LAST_INGEST_ERROR
+                _LAST_INGEST_ERROR = (body or {}).get("error") if isinstance(body, dict) else None
                 _save_state(state)
                 return False
             if body.get("consumed_to", cursor["offset"]) == cursor["offset"]:
@@ -338,8 +348,16 @@ def cmd_session_start(hook: dict) -> int:
 
 def _capture(hook: dict, state: dict) -> bool:
     """Transcript-mode capture for any hook event in the main session."""
-    session_id = state["session_id"]
-    ok = _ingest_transcript(state, hook.get("transcript_path"), session_id, model=hook.get("model"))
+    ok = _ingest_transcript(state, hook.get("transcript_path"), _main_tid(state), model=hook.get("model"))
+    if not ok and not state.get("trajectory_id") and (_LAST_INGEST_ERROR or "").startswith(
+        "trajectory_id belongs to another root"
+    ):
+        # Plugin build: this session already has a trajectory under another
+        # root in the same ledger (settings changed mid-session). Record this
+        # root's capture under its own id instead of failing forever.
+        state["trajectory_id"] = f"{state['session_id']}@{state['root_prov_id'][:12]}"
+        _save_state(state)
+        ok = _ingest_transcript(state, hook.get("transcript_path"), _main_tid(state), model=hook.get("model"))
     if not ok:
         _warn("transcript ingest failed; the next hook will resend from the last receipt")
     _retry_pending_subagents(state)
@@ -350,7 +368,7 @@ def _retry_pending_subagents(state: dict) -> None:
     """Plugin build: resend sub-agent transcripts whose SubagentStop ingest failed."""
     pending = state.get("pending_subagents") or {}
     for trajectory_id, path in list(pending.items()):
-        if _ingest_transcript(state, path, trajectory_id, parent_agent_ref=state["session_id"]):
+        if _ingest_transcript(state, path, trajectory_id, parent_agent_ref=_main_tid(state)):
             pending.pop(trajectory_id, None)
     if pending:
         state["pending_subagents"] = pending
@@ -424,7 +442,10 @@ def cmd_post_tool(hook: dict) -> int:
 
 
 def cmd_stop(hook: dict) -> int:
-    if hook.get("stop_hook_active"):
+    # Plugin build: a continued Stop still captures (cursor ingest is
+    # idempotent and never asks Claude to continue); only the legacy summary
+    # path is skipped.
+    if hook.get("stop_hook_active") and CAPTURE != "transcript":
         return 0
     state = _require_state(hook)
     if state is None:
@@ -483,12 +504,12 @@ def cmd_subagent_stop(hook: dict) -> int:
     path = hook.get("agent_transcript_path")
     agent = re.sub(r"[^A-Za-z0-9._~@-]", "-", str(hook.get("agent_id") or "subagent"))[:60]
     if path:
-        trajectory_id = f"{state['session_id']}:{agent}"
+        trajectory_id = f"{_main_tid(state)}:{agent}"
         ok = _ingest_transcript(
             state,
             path,
             trajectory_id,
-            parent_agent_ref=state["session_id"],
+            parent_agent_ref=_main_tid(state),
         )
         if not ok:
             state.setdefault("pending_subagents", {})[trajectory_id] = path
