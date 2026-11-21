@@ -70,7 +70,7 @@ printf '%s' "$MY_KEY" | node mcp/bin/inspect-key.cjs ANTHROPIC_API_KEY
 
 Hosted mode is turned on with `RAMBLE_HOSTED=1`. In that mode the server:
 
-- listens on `0.0.0.0` at `$PORT` and serves MCP over Streamable HTTP at `/mcp` (stateless), with `/health` for health checks;
+- listens on `0.0.0.0` at `$PORT` and serves MCP over Streamable HTTP at `/mcp` (stateless), with `/health` for health checks and the waveform icon at `/favicon.ico`, `/favicon.png` and `/apple-touch-icon.png` (no sign-in needed, so directory listings pick it up);
 - takes every key and setting from the request's headers, never from its own environment, so no operator keys are needed or used:
 
 | Header | Setting |

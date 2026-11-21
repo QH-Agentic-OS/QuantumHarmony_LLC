@@ -13,6 +13,7 @@
  *
  * Endpoints:
  *   GET  /health → readiness probe
+ *   GET  /favicon.ico, /favicon.png, /apple-touch-icon.png → waveform icon
  *   POST /mcp    → MCP requests (JSON-RPC over Streamable HTTP)
  *   POST /       → alias for /mcp (backwards compat)
  */
@@ -37,6 +38,7 @@ const {
   readBearer,
   sendUnauthorized,
 } = require('./oauth/server.cjs');
+const { handleFaviconRequest } = require('./favicon.cjs');
 
 // Tools a Notion sign-in (the connector) can use. The AI-provider tools need
 // the user's own provider keys, which only the plugin's settings can supply.
@@ -186,6 +188,8 @@ const startMcpServer = async () => {
     }
 
     const pathname = (req.url || '').split('?')[0];
+
+    if (handleFaviconRequest(req, res, pathname)) return;
 
     if (isHosted() && (await handleOAuthRequest(req, res))) return;
 
