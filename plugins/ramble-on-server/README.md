@@ -22,9 +22,10 @@ The same code runs two ways:
 
 ```
 /plugin marketplace add QH-Agentic-OS/QuantumHarmony_LLC
-/plugin install ramble-on@quantum-harmony-marketplace
 /plugin install ramble-on-server@quantum-harmony-marketplace
 ```
+
+The skill ships in the `ramble-on` plugin. If you use both, turn off `ramble-on`'s hosted connection (or leave its settings empty and don't sign in), or the tools appear twice.
 
 Claude Code installs the server's Node.js dependencies (from `package-lock.json`) when it installs the plugin. Node 20 or later is required.
 
@@ -101,7 +102,8 @@ How it works:
 - Metadata: `/.well-known/oauth-protected-resource/mcp` (RFC 9728) and `/.well-known/oauth-authorization-server` (RFC 8414). Clients register through stateless DCR at `/oauth/register`, or with a Client ID Metadata Document from a Claude host. Only Claude's redirect URIs are accepted: `https://claude.ai/api/mcp/auth_callback` and loopback `http://localhost|127.0.0.1:*/callback`.
 - `/oauth/authorize` shows a short consent page, then sends the user to Notion. `/oauth/notion/callback` exchanges Notion's code and returns our code to Claude. `/oauth/token` does the code exchange (PKCE S256 required) and refresh. Refreshes also refresh the Notion token.
 - Nothing is stored. Codes and tokens are AES-256-GCM sealed blobs that carry the Notion tokens. Access tokens last 1 hour, refresh tokens 90 days. Because nothing is stored, an old refresh token stays usable until it expires; rotating `RAMBLE_TOKEN_KEY` revokes everything.
-- A signed-in caller gets only `kb_search`, `kb_write`, and `get_voice_model`. Without a root page, `get_voice_model` finds a shared page titled "Voice Model", and `kb_write` creates new pages under a shared page titled "Ramble On".
+- A signed-in caller gets only `kb_search`, `kb_write`, and `get_voice_model` (Claude shows them as `ramble_kb_search`, `ramble_kb_write`, `ramble_get_voice_model`). A sign-in never uses a root page ID: `get_voice_model` takes the first shared page whose title contains "Voice Model", and `kb_write` without a `page_id` creates new pages under the first shared page whose title contains "Ramble On" (with the space; `Ramble_On` doesn't match). User-facing setup is in the [Ramble On README](../ramble-on/README.md#option-1-sign-in-with-notion).
+- Only Claude's redirect URIs are accepted, so generic clients such as MCP Inspector are refused at registration by design. Test by connecting the server in Claude as a custom connector.
 
 Test the flow with `npm run test:oauth` (Notion mocked).
 
