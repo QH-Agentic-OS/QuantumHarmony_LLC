@@ -16,8 +16,8 @@
     {
       "name": "atp-provenance-logging",
       "source": "./plugins/atp-provenance-logging",
-      "description": "Line-item action provenance for ATP agents (parent + child prov_id in agent_logs; halt-and-alert on log failure).",
-      "version": "1.0.0",
+      "description": "Line-item provenance for agent work: hooks capture every session step into Prove, plus the ATP skill and Mission Control dashboard. Hosted, standalone or offline.",
+      "version": "2.0.0",
       "author": {
         "name": "Quantum Harmony LLC"
       }

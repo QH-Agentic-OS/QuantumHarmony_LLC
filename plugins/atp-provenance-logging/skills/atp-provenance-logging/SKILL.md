@@ -1,126 +1,116 @@
 ---
 name: atp-provenance-logging
-description: Create a parent provenance ID for each ATP prompt and log every agent action (tool calls, reads, writes, executes) as child entries in agent_logs with parent_prov_id linking back to the ATP prompt.
+description: Create a parent provenance ID for each ATP prompt and log every agent action (tool calls, reads, writes, executes) as child entries in agent_logs with parent_prov_id linking back to the ATP prompt. Use when the user asks for ATP/Artemis provenance, an audit trail of agent actions, or to open the Prove (ATP Mission Control) dashboard.
 ---
 
 # ATP Provenance Logging
 
+Every agent action must be traceable to the prompt that caused it. This plugin
+does that in two layers:
+
+1. **Harness capture (automatic).** At session start the hooks mint **one root
+   per session**, then forward the transcript to Prove (`POST /ingest/trajectory`)
+   on every prompt, tool call, stop and sub-agent stop. Prove parses each record
+   into a hash-chained child step of that root. You do not write these entries
+   and cannot leave any out.
+2. **ATP structure (this skill).** For each ATP prompt you add an `atp_prompt`
+   marker and an `atp_response` marker as children of the same session root,
+   and log any action the transcript cannot show (for example work done outside
+   Claude Code). Prove stamps these entries `self_reported`, and a binding can
+   be set to refuse them.
+
 ## When to use
-Use this skill whenever the user requests ATP/Artemis protocol **and** wants provenance logging, or when the task requires line-item tracking for each agent action (tool calls, reads, writes, executes) in the `agent_logs` table.
+Use this skill whenever the user requests ATP/Artemis protocol **and** wants
+provenance logging, asks for line-item tracking of agent actions in
+`agent_logs`, or asks to see the provenance dashboard.
 
-## Workflow (robust and enforced)
-### 0) Preconditions and scope
-- The provenance service must be reachable at `$PROVENANCE_SERVICE_URL` (default `http://localhost:8787`).
-- If the service is unavailable, **do not proceed with actions**. Trigger an immediate human alert and ask for remediation.
-- Do not log secrets. Apply redaction to any tokens, keys, or credentials.
+## Modes (set in the plugin's settings)
+- **standalone** (default): Prove runs on this machine at `http://127.0.0.1:8787`.
+  The hooks start it at session start. Ledger: `~/.prove/provenance.db`.
+- **offline**: the same local service, but nothing may leave the machine. Any
+  non-loopback service URL is refused and no token is ever sent.
+- **hosted**: your own deployed Prove (`service_url`, https) with an API token.
 
-### 1) Mint the ATP parent provenance ID
-- Attempt to mint the parent ID via the local service:
-  - `POST $PROVENANCE_SERVICE_URL/mint`
-- If non-2xx or request fails:
-  - **Immediate alert to human user** that provenance is unavailable.
-  - **Stop execution** until resolved (no further actions are valid without parent `prov_id`).
-- This parent `prov_id` represents the ATP prompt transaction root.
+## Workflow (enforced)
 
-### 2) Emit ATP header and embed the parent prov_id
-- Always output the ATP header first.
-- Add the parent `prov_id` to the ATP header:
-  - Recommended location: append `prov_id=<uuid>` to `[[Special Instructions]]`.
-  - If `[[Special Instructions]]` already has content, append with `; prov_id=<uuid>`.
-- If the user supplied a header, preserve their values and only add the `prov_id`.
+### 0) Preconditions
+- Check the service: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/prove_local.py" status`
+  (hosted: `curl -s "$PROVENANCE_SERVICE_URL/health"`).
+- Standalone/offline and not running: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/prove_local.py" start`.
+- If the service is unavailable, **do not proceed with actions**. Alert the
+  user immediately and ask for remediation.
+- Never log secrets. Prove redacts secret-named keys and obvious token shapes;
+  keep inputs minimal anyway.
 
-### 3) Log the ATP prompt line item (required)
-Insert **one** line item for the ATP prompt root:
-- `prov_id`: parent ID
-- `parent_prov_id`: null
-- `actor`: "Codex" (or the current agent name)
-- `model`: model identifier if known
-- `phase`: `"atp_prompt"`
-- `input`: sanitized user prompt + any context sources used (file paths, tool names)
-- `output`: ATP header + short intent/plan summary
-- `status`: `"ok"` unless an error occurs
-- `tags`: `["atp", "prompt"]`
-
-If this log write fails:
-- **Immediate alert to human user**.
-- **Stop execution** (all outputs without provenance are invalid).
-
-### 4) For every action, create a child provenance entry (required)
-For **each** action performed after the ATP prompt, create a **new** child `prov_id` linked to the parent:
-- **Action types** (each is a line item):
-  - File read
-  - File write
-  - Tool call (MCP tools, shell commands, etc.)
-  - Execution steps (tests, builds, scripts)
-- **Child log fields**:
-  - `prov_id`: new UUID per action
-  - `parent_prov_id`: parent ATP `prov_id`
-  - `actor`: "Codex" or specific tool name (e.g., `"shell_command"`)
-  - `phase`: one of `"read_file"`, `"write_file"`, `"execute_command"`, `"tool_call"`, or more specific phase labels
-  - `input`: minimal, sanitized parameters (file paths, command, tool args)
-  - `output`: brief success summary or error
-  - `status`: `"ok"`, `"error"`, or `"retry"`
-  - `tags`: include action tag `["read"]`, `["write"]`, `["execute"]`, `["tool"]`
-
-If any child log write fails:
-- **Immediate alert to human user**.
-- **Stop execution** (subsequent outputs are invalid).
-- Note: agents that continue without provenance are subject to reduced trust scores and workflow blocking; the agent does not know the score.
-
-### 5) Log errors with lineage preserved
-- If any action fails, log that failure as a child entry with:
-  - `status`: `"error"`
-  - `error`: error message
-  - `tags`: include `"error"`
-- Maintain parent linkage regardless of error.
-
-### 6) Log the ATP response (required)
-At the end of the task, log a final child entry:
-- `prov_id`: new UUID
-- `parent_prov_id`: ATP parent `prov_id`
-- `phase`: `"atp_response"`
-- `output`: summary of response or key actions taken
-- `status`: `"ok"` or `"error"`
-- `tags`: `["atp", "response"]`
-
-If this log write fails:
-- **Immediate alert to human user**.
-- **Stop execution** (response is invalid without provenance).
-
-### 7) Logging transport and payload shape
-Send logs to:
-- `POST $PROVENANCE_SERVICE_URL/log`
-
-Payload shape:
+### 1) Mark the ATP prompt
+```bash
+ID=$(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/prove_log.py" begin \
+  --agent claude-code --model "<model id if known>" \
+  --context "<sanitized user prompt + context sources>" --plan "<one-line intent>")
 ```
-{
-  "prov_id": "uuid",
-  "parent_prov_id": "uuid-or-null",
-  "actor": "Codex",
-  "model": "gpt-5",
-  "phase": "read_file",
-  "input": {"path": "src/index.ts"},
-  "output": {"summary": "read ok"},
-  "status": "ok",
-  "error": null,
-  "latency_ms": 12,
-  "cost_usd": null,
-  "tags": ["read"]
-}
-```
+Inside a captured session, `begin` logs an `atp_prompt` marker under the
+session's root and prints that root's `prov_id`, so the prompt, every captured
+step and the response share one chain. With no captured session for this
+workspace (capture off, or another harness) it binds the four manifest layers
+and mints a root of its own; `--new-root` forces that.
+If it exits non-zero: **alert the user and stop**. No action is valid without
+the root `prov_id`.
 
-### 8) Required guarantees
-- Exactly **one** parent `prov_id` per ATP prompt.
-- Every subsequent action must have a unique child `prov_id` and `parent_prov_id` set to the ATP parent.
-- All actions must be represented as line items in `agent_logs`.
+### 2) Emit the ATP header with the root prov_id
+- Output the ATP header first; append `prov_id=<uuid>` to `[[Special Instructions]]`
+  (`; prov_id=<uuid>` if it already has content).
+- If the user supplied a header, keep their values and only add the `prov_id`.
+
+### 3) Actions
+- Inside Claude Code the hooks already record every read, write, command and
+  tool call. Do not duplicate them.
+- Log an action yourself only when the transcript cannot show it, or when the
+  hooks are off (`capture` setting false, or another harness):
+  ```bash
+  python3 "${CLAUDE_PLUGIN_ROOT}/scripts/prove_log.py" log "$ID" \
+    --phase read_file|write_file|execute_command|tool_call \
+    --target "<path, command or tool>" --summary "<brief result>" [--status error --error "<msg>"]
+  ```
+- Failures are logged as children with `--status error`; lineage is kept.
+- If any write fails (non-zero exit): **alert the user and stop**.
+
+### 4) Log the ATP response (required)
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/prove_log.py" end "$ID" --summary "<what was done>"
+```
+If this fails: **alert the user and stop**. The response is invalid without it.
+
+### 5) Verify and show
+- `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/prove_log.py" verify "$ID"` checks the
+  hash chain, sequence and manifest refs.
+- Dashboard (standalone/offline): `http://127.0.0.1:8787/`. Paste the root
+  `prov_id` into **watch existing chain**, or export with
+  `prove_log.py chain "$ID" > run.json` and use **Import JSON**.
+- No server at all: open `ui/prove-offline.html` from disk and import the JSON.
+
+## Transport reference (HTTP)
+Base URL `$PROVENANCE_SERVICE_URL` (default `http://127.0.0.1:8787`); a hosted
+Prove needs `Authorization: Bearer $PROV_API_TOKEN` over https.
+- `POST /manifest/bind` `{layer, manifest_binding_id, body, parent_ref, session_id?}`
+- `POST /mint` `{agent_id, actor, model, manifest_binding_id, atp_context, input, output, tags}`
+- `POST /log` `{parent_prov_id, manifest_binding_id, agent_id, actor, phase, action_type, target, payload_summary, input, output, status, error, tags}`
+  (no complete manifest context → `422`; duplicate child id → `409`)
+- `GET /chain?parent_prov_id=` export, `GET /verify?parent_prov_id=` integrity report
+- `POST /ingest/trajectory` harness capture (used by the hooks)
+- `GET /health`
+
+## Required guarantees
+- Exactly **one** root `prov_id` per session (one per ATP prompt when there is
+  no captured session), with an `atp_prompt` and an `atp_response` marker for
+  each ATP prompt.
+- Every action is a child with `parent_prov_id` set to that root, chained by
+  `prev_action_hash` within its binding.
 - Any missing provenance invalidates the output and triggers human review.
 
-### 9) Governance posture
-- Agents must assume continuous monitoring, logging, and review.
-- Agents should not infer whether a prompt is routine or disqualifying; treat all prompts as evaluation-grade.
-- The orchestration agent and humans define alerting/monitoring mechanisms; do not speculate on those systems.
-
-## Notes
-- If logging fails at any point, **halt execution and alert**. Do not continue without provenance.
-- Keep content minimal; avoid logging secrets. Use redaction for any tokens/keys.
-- Prefer `actor` naming consistency so rollups are clean (e.g., "Codex", "shell_command", "mcp__supabase").
+## Governance posture
+- Assume continuous monitoring, logging and review; treat every prompt as
+  evaluation-grade.
+- Do not speculate about alerting or scoring systems; the orchestrator and
+  humans define them.
+- Keep `actor` names consistent (`claude-code`, `shell_command`, `mcp__<server>`)
+  so rollups stay clean.
