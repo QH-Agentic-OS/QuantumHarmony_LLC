@@ -146,6 +146,21 @@ class LocalServiceTests(unittest.TestCase):
         self.assertEqual(report["capture_methods"], {"harness_transcript": 2})
         self.assertNotIn(b"abcdefghijklmnopqrst", self.db.read_bytes())
 
+    def test_a_record_over_512_kib_is_still_captured(self):
+        work = Path(self.tmp.name) / "big"
+        work.mkdir(exist_ok=True)
+        big = {"type": "user", "timestamp": "2026-01-01T00:00:00Z", "cwd": str(work),
+               "message": {"role": "user", "content": "y" * 600_000}}
+        small = {"type": "user", "timestamp": "2026-01-01T00:00:01Z", "cwd": str(work),
+                 "message": {"role": "user", "content": "after"}}
+        transcript = work / "t.jsonl"
+        transcript.write_text(json.dumps(big) + "\n" + json.dumps(small) + "\n")
+        payload = {"session_id": "big-record", "cwd": str(work), "transcript_path": str(transcript)}
+        for event in ("session-start", "stop"):
+            self.assertEqual(self.hook(event, payload).returncode, 0, event)
+        state = json.loads(next((Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session").glob("*/big-record.json")).read_text())
+        self.assertEqual(state["trajectories"]["big-record"]["offset"], transcript.stat().st_size)
+
     def test_offline_mode_refuses_a_remote_service(self):
         result = self.hook("session-start", {"session_id": "x"}, mode="offline",
                            service_url="https://prove.example.com")
@@ -216,11 +231,40 @@ class TranscriptChunkTests(unittest.TestCase):
         self.assertEqual(sum(map(len, pieces)), 3 * 1001)
 
 
+class SubagentRetryTests(unittest.TestCase):
+    def test_failed_subagent_ingest_is_retried_by_later_hooks(self):
+        sys.path.insert(0, str(ROOT / "server"))
+        import atp_hooks
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        sub = Path(tmp.name) / "sub.jsonl"
+        sub.write_text(json.dumps({"type": "user", "message": {"role": "user", "content": "x"}}) + "\n")
+        state = {"session_id": "s", "root_prov_id": "r", "binding_id": "b", "trajectories": {}}
+        calls = []
+
+        def fake_post(path, payload, timeout=10):
+            calls.append(payload["trajectory_id"])
+            if len(calls) == 1:
+                return 0, None  # Prove down at SubagentStop
+            return 200, {"consumed_to": payload["offset"] + len(payload["chunk"].encode()), "chain_sha256": "c"}
+
+        orig_post, orig_dir, orig_state = atp_hooks._post_status, atp_hooks.STATE_DIR, atp_hooks._require_state
+        atp_hooks._post_status, atp_hooks.STATE_DIR = fake_post, Path(tmp.name) / "state"
+        try:
+            atp_hooks._require_state = lambda hook: state
+            atp_hooks.cmd_subagent_stop({"agent_transcript_path": str(sub), "agent_id": "a1"})
+            self.assertNotIn("pending_subagents", state)  # retried in the same run once Prove answered
+            self.assertEqual(calls, ["s:a1", "s:a1"])
+        finally:
+            atp_hooks._post_status, atp_hooks.STATE_DIR, atp_hooks._require_state = orig_post, orig_dir, orig_state
+
+
 class DashboardDefaultsTests(unittest.TestCase):
     def test_dashboard_defaults_to_its_own_origin(self):
         js = (UI / "app.js").read_text()
         self.assertIn("window.location.origin", js)
         self.assertNotIn("'http://localhost:8787'", js)
+        self.assertIn("e.phase || ARTEMIS_ACTION_TO_PHASE", js)
 
 
 class RemoteBindTests(unittest.TestCase):

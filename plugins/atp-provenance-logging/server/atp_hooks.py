@@ -50,6 +50,9 @@ SERVICE = os.environ.get("PROVENANCE_SERVICE_URL", "http://localhost:8787").rstr
 STRICT = os.environ.get("PROVENANCE_STRICT", "0") == "1"
 CAPTURE = os.environ.get("PROVENANCE_CAPTURE", "transcript")
 CHUNK_BYTES = 512 * 1024
+# Plugin build: one record larger than CHUNK_BYTES gets a single larger read,
+# kept well under the service's 1.5 MiB chunk / 2 MiB body limits after JSON escaping.
+LARGE_CHUNK_BYTES = 1024 * 1024
 REPO = Path(__file__).resolve().parent
 # Plugin build: the plugin folder is replaced on every update, so cursor state
 # lives in PROVENANCE_STATE_DIR (set by scripts/prove_hook.py to the plugin's
@@ -271,9 +274,10 @@ def _ingest_transcript(
     cursors = state.setdefault("trajectories", {})
     cursor = cursors.setdefault(trajectory_id, {"offset": 0, "chain": None})
     retried = False
+    budget = CHUNK_BYTES
     while True:
         progressed = False
-        for chunk in _transcript_chunks(transcript_path, cursor["offset"], CHUNK_BYTES):
+        for chunk in _transcript_chunks(transcript_path, cursor["offset"], budget):
             payload = {
                 "parent_prov_id": state["root_prov_id"],
                 "manifest_binding_id": state["binding_id"],
@@ -309,8 +313,11 @@ def _ingest_transcript(
                 remaining = Path(transcript_path).stat().st_size - cursor["offset"]
             except OSError:
                 remaining = 0
-            if remaining >= CHUNK_BYTES:
-                _warn("a transcript record exceeds the ingest chunk budget; capture is paused at that record")
+            if remaining >= budget:
+                if budget < LARGE_CHUNK_BYTES:
+                    budget = LARGE_CHUNK_BYTES  # one oversized record: retry with a larger read
+                    continue
+                _warn("a transcript record exceeds 1 MiB; capture is paused at that record")
                 return False
             return True
 
@@ -334,6 +341,20 @@ def _capture(hook: dict, state: dict) -> None:
     session_id = state["session_id"]
     if not _ingest_transcript(state, hook.get("transcript_path"), session_id, model=hook.get("model")):
         _warn("transcript ingest failed; the next hook will resend from the last receipt")
+    _retry_pending_subagents(state)
+
+
+def _retry_pending_subagents(state: dict) -> None:
+    """Plugin build: resend sub-agent transcripts whose SubagentStop ingest failed."""
+    pending = state.get("pending_subagents") or {}
+    for trajectory_id, path in list(pending.items()):
+        if _ingest_transcript(state, path, trajectory_id, parent_agent_ref=state["session_id"]):
+            pending.pop(trajectory_id, None)
+    if pending:
+        state["pending_subagents"] = pending
+    else:
+        state.pop("pending_subagents", None)
+    _save_state(state)
 
 
 def cmd_user_prompt(hook: dict) -> int:
@@ -450,13 +471,16 @@ def cmd_subagent_stop(hook: dict) -> int:
     path = hook.get("agent_transcript_path")
     agent = re.sub(r"[^A-Za-z0-9._~@-]", "-", str(hook.get("agent_id") or "subagent"))[:60]
     if path:
+        trajectory_id = f"{state['session_id']}:{agent}"
         ok = _ingest_transcript(
             state,
             path,
-            f"{state['session_id']}:{agent}",
+            trajectory_id,
             parent_agent_ref=state["session_id"],
         )
         if not ok:
+            state.setdefault("pending_subagents", {})[trajectory_id] = path
+            _save_state(state)
             _warn("sub-agent transcript ingest failed; it will be resent on the next hook")
     _capture(hook, state)
     return 0
