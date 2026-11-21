@@ -11,11 +11,11 @@ Changed for this public plugin build:
 
 | File | Change |
 |---|---|
-| `atp_hooks.py` | Cursor state goes to `PROVENANCE_STATE_DIR` (the plugin data folder) instead of the plugin folder, which is replaced on update. `instruction_hash` hashes the working project's `CLAUDE.md`, not this folder's. |
+| `atp_hooks.py` | Cursor state goes to `PROVENANCE_STATE_DIR` (the plugin data folder, one subfolder per destination ledger) instead of the plugin folder, which is replaced on update. `instruction_hash` hashes the working project's `CLAUDE.md`, not this folder's. Transcript chunks are masked for credential shapes before sending (same length, so offsets hold; `trajectory.py chain` must be run on a masked copy) and capped at 400 records so the service's 500-record limit never stalls capture. |
 | `provenance_core.py` | `/runtime/metadata` `artifact_hash` also looks for the dashboard at `../ui/app.js`. |
 | `hosted_service.py` | Serves the network-free dashboard from `../ui`, including `vendor/`. |
 | `manifest.py` | `EMITTERS` lists only what this plugin emits; private-stack sources removed. The `routing_memory` derived fields and collision entry are left out of the public build. Self-test examples use generic names. |
-| `ui/app.js` | Simulation agent profiles and sample paths use generic names. |
+| `ui/app.js` | Simulation agent profiles and sample paths use generic names. The service URL defaults to the page's own origin when served over HTTP(S). Imported/live chain entries keep the service's `status` and `error` instead of deriving them from `result`. |
 | `ui/index.html` | From `atp-mission-control.html`; loads React from `vendor/` instead of a CDN. |
 
 Not included: the MCP server (`provenance_mcp.py`, needs the `mcp` package),

@@ -26,7 +26,8 @@ When `capture` is on, at session start and after each prompt, tool call, stop
 and sub-agent stop, the hooks send the part of the Claude Code session
 transcript that Prove has not yet received, together with the session id, the
 workspace path and the model id. Before anything leaves the hook, values that
-look like API keys or bearer tokens are replaced with `[REDACTED]`.
+look like API keys or bearer tokens are overwritten with `*` characters of the
+same length, so the hosted or local service never receives them.
 
 ## What Prove stores
 

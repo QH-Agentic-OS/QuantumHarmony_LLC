@@ -11,8 +11,10 @@ its own (the ATP prompt root and response), or from any other agent or script:
     python3 prove_log.py end "$ID" --summary "refactor done, tests green"
     python3 prove_log.py chain "$ID" > run.json     # import into the dashboard
 
-Service: $PROVENANCE_SERVICE_URL (default http://127.0.0.1:8787). A hosted
-Prove also needs $PROV_API_TOKEN (sent only over https or to loopback).
+Service: $PROVENANCE_SERVICE_URL, else the endpoint the plugin's hooks wrote
+to ~/.prove/plugin-endpoint.json, else http://127.0.0.1:8787. A hosted Prove
+also needs $PROV_API_TOKEN (sent only over https or to loopback); the plugin
+never writes the token to disk.
 Entries written here are agent-authored, so Prove marks them self-reported.
 Exit status is non-zero on any failed write: halt and alert, per the skill.
 """
@@ -32,7 +34,18 @@ from urllib.parse import quote
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "server"))
 from provenance_http import open_provenance_request  # noqa: E402
 
-SERVICE = os.environ.get("PROVENANCE_SERVICE_URL", "http://127.0.0.1:8787").rstrip("/")
+def _endpoint() -> tuple[str, str]:
+    """$PROVENANCE_SERVICE_URL, else the endpoint the plugin's hooks published."""
+    if os.environ.get("PROVENANCE_SERVICE_URL"):
+        return os.environ["PROVENANCE_SERVICE_URL"].rstrip("/"), os.environ.get("PROVENANCE_MODE", "")
+    try:
+        cfg = json.loads((Path.home() / ".prove" / "plugin-endpoint.json").read_text())
+        return str(cfg["service_url"]).rstrip("/"), str(cfg.get("mode", ""))
+    except (OSError, ValueError, KeyError, TypeError):
+        return "http://127.0.0.1:8787", ""
+
+
+SERVICE, MODE = _endpoint()
 STATE = Path(os.environ.get("PROVENANCE_ATP_STATE_DIR") or Path.home() / ".prove" / "atp")
 ACTION_TAGS = {"read_file": "read", "write_file": "write", "execute_command": "execute", "tool_call": "tool"}
 
@@ -41,7 +54,22 @@ class ProveError(RuntimeError):
     pass
 
 
+def _loopback(url: str) -> bool:
+    import ipaddress
+    from urllib.parse import urlsplit
+
+    host = urlsplit(url).hostname or ""
+    try:
+        return host == "localhost" or ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
 def call(method: str, path: str, payload: dict | None = None):
+    if MODE == "offline" and not _loopback(SERVICE):
+        raise ProveError(f"offline mode only talks to this machine; {SERVICE} is not loopback")
+    if MODE == "hosted" and not (os.environ.get("PROV_API_TOKEN") or os.environ.get("PROV_API_TOKEN_FILE")):
+        raise ProveError("hosted mode needs PROV_API_TOKEN (or PROV_API_TOKEN_FILE) in this shell")
     data = json.dumps(payload).encode() if payload is not None else None
     req = urllib.request.Request(f"{SERVICE}{path}", data=data, method=method,
                                  headers={"Content-Type": "application/json"})

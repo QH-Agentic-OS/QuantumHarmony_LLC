@@ -3,7 +3,10 @@
   "displayName": "ATP Provenance Logging (Prove)",
   "version": "2.0.0",
   "description": "Line-item provenance for agent work: the hooks forward each session's transcript to Prove, which records every step as a hash-chained child of one root per prompt, plus the ATP skill, the Mission Control dashboard and a bundled local service. Runs hosted, standalone, or fully offline.",
-  "author": {"name": "Quantum Harmony LLC", "email": "prinston@artemiscity.com"},
+  "author": {
+    "name": "Quantum Harmony LLC",
+    "email": "prinston@artemiscity.com"
+  },
   "homepage": "https://github.com/QH-Agentic-OS/QuantumHarmony_LLC/tree/main/plugins/atp-provenance-logging",
   "repository": "https://github.com/QH-Agentic-OS/QuantumHarmony_LLC",
   "privacyPolicyUrl": "https://github.com/QH-Agentic-OS/QuantumHarmony_LLC/blob/main/plugins/atp-provenance-logging/PRIVACY.md",
@@ -57,8 +60,8 @@
     },
     "strict": {
       "type": "boolean",
-      "title": "Block the session if Prove is down",
-      "description": "Off by default: an outage shows a warning and the session continues. On: session start fails until Prove is reachable.",
+      "title": "Refuse prompts while Prove is down",
+      "description": "Off by default: an outage shows a warning and work continues. On: each prompt is refused until Prove is reachable, so no work goes unrecorded.",
       "default": false
     }
   }

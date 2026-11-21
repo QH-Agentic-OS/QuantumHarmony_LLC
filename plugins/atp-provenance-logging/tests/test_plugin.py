@@ -136,7 +136,9 @@ class LocalServiceTests(unittest.TestCase):
         payload = {"session_id": "plugin-test", "cwd": str(work), "transcript_path": str(transcript)}
         for event in ("session-start", "post-tool", "stop"):
             self.assertEqual(self.hook(event, payload, mode="offline").returncode, 0, event)
-        state = json.loads((Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session" / "plugin-test.json").read_text())
+        states = list((Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session").glob("*/plugin-test.json"))
+        self.assertEqual(len(states), 1)
+        state = json.loads(states[0].read_text())
         status, _, body = self.get(f"/verify?parent_prov_id={state['root_prov_id']}")
         report = json.loads(body)
         self.assertEqual(status, 200)
@@ -162,7 +164,63 @@ class LocalServiceTests(unittest.TestCase):
     def test_capture_off_does_nothing(self):
         result = self.hook("session-start", {"session_id": "off"}, capture="false")
         self.assertEqual((result.returncode, result.stdout), (0, ""))
-        self.assertFalse((Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session" / "off.json").exists())
+        self.assertEqual(list((Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session").glob("*/off.json")), [])
+
+    def test_strict_refuses_prompts_while_prove_is_down(self):
+        dead = f"http://127.0.0.1:{free_port()}"
+        result = self.hook("user-prompt", {"session_id": "strict"}, strict="true", service_url=dead, autostart="false")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("unreachable", result.stderr)
+        self.assertEqual(self.hook("user-prompt", {"session_id": "strict"}, strict="true").returncode, 0)
+
+    def test_state_is_scoped_to_the_ledger(self):
+        payload = {"session_id": "scoped"}
+        self.hook("session-start", payload)
+        other = f"http://127.0.0.1:{free_port()}"
+        self.hook("session-start", payload, service_url=other, autostart="false")
+        found = list((Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session").glob("*/scoped.json"))
+        self.assertEqual(len(found), 1)  # the dead ledger registered nothing, and nothing was reused
+
+    def test_helper_follows_the_endpoint_the_hooks_published(self):
+        self.hook("session-start", {"session_id": "endpoint"}, mode="offline")
+        cfg = json.loads((Path(self.env["HOME"]) / ".prove" / "plugin-endpoint.json").read_text())
+        self.assertEqual(cfg, {"mode": "offline", "service_url": f"http://127.0.0.1:{self.port}"})
+        env = {k: v for k, v in self.env.items() if k != "PROVENANCE_SERVICE_URL"}
+        run = subprocess.run([sys.executable, "-I", str(SCRIPTS / "prove_log.py"), "begin", "--context", "t"],
+                             env=env, capture_output=True, text=True, timeout=30)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertRegex(run.stdout.strip(), r"^[0-9a-f-]{36}$")
+
+
+class TranscriptChunkTests(unittest.TestCase):
+    def setUp(self):
+        sys.path.insert(0, str(ROOT / "server"))
+        import atp_hooks
+        self.hooks = atp_hooks
+
+    def test_mask_hides_credentials_without_moving_offsets(self):
+        raw = b'{"x": "curl -H \'Authorization: Bearer abcdefghijklmnopqrst\' ghp_ABCDEFGH12345678"}\n'
+        masked = self.hooks._mask(raw)
+        self.assertEqual(len(masked), len(raw))
+        self.assertNotIn(b"abcdefghijklmnopqrst", masked)
+        self.assertNotIn(b"ghp_ABCDEFGH", masked)
+
+    def test_chunks_never_exceed_the_record_limit(self):
+        with tempfile.NamedTemporaryFile("wb", delete=False) as f:
+            f.write(b"{}\n" * 1001)
+        try:
+            pieces = list(self.hooks._transcript_chunks(f.name, 0, 512 * 1024, max_records=400))
+        finally:
+            os.unlink(f.name)
+        self.assertEqual([p.count(b"\n") for p in pieces], [400, 400, 201])
+        self.assertEqual(sum(map(len, pieces)), 3 * 1001)
+
+
+class DashboardDefaultsTests(unittest.TestCase):
+    def test_dashboard_defaults_to_its_own_origin(self):
+        js = (UI / "app.js").read_text()
+        self.assertIn("window.location.origin", js)
+        self.assertNotIn("'http://localhost:8787'", js)
 
 
 class RemoteBindTests(unittest.TestCase):

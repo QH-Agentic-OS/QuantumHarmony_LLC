@@ -13,7 +13,8 @@ Settings arrive from Claude Code as CLAUDE_PLUGIN_OPTION_<KEY>:
                it is a loopback URL.
   API_TOKEN    bearer token for a hosted Prove (sent only in hosted mode)
   CAPTURE      true (default) / false — turn transcript capture off
-  STRICT       false (default) / true — block the session if Prove is down
+  STRICT       false (default) / true — refuse prompts while Prove is down
+               (UserPromptSubmit exit 2; SessionStart cannot block)
   AUTOSTART    true (default) / false — start the bundled local service
   LEDGER_PATH  local ledger file (default ~/.prove/provenance.db)
 
@@ -22,6 +23,7 @@ Fail-soft like the hooks it wraps: always exits 0 unless STRICT is on.
 
 from __future__ import annotations
 
+import hashlib
 import ipaddress
 import json
 import os
@@ -81,6 +83,35 @@ def resolve() -> tuple[str | None, str | None, str]:
     return url or LOCAL_URL.format(port=port), None, mode
 
 
+def reachable(url: str, token: str | None) -> bool:
+    import urllib.request
+
+    sys.path.insert(0, str(ROOT / "server"))
+    from provenance_http import open_provenance_request
+
+    if token:
+        os.environ["PROV_API_TOKEN"] = token
+    try:
+        with open_provenance_request(urllib.request.Request(f"{url}/health"), timeout=3) as r:
+            return json.loads(r.read()).get("service") == "atp-provenance"
+    except Exception:  # noqa: BLE001 — any failure means "not reachable"
+        return False
+
+
+def publish_endpoint(url: str, mode: str) -> None:
+    """Tell prove_log.py (run from the Bash tool) which Prove this plugin uses.
+
+    Only the mode and the URL are written; the hosted token stays in the
+    credential store, so prove_log.py needs PROV_API_TOKEN for hosted mode.
+    """
+    path = Path.home() / ".prove" / "plugin-endpoint.json"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"mode": mode, "service_url": url}) + "\n")
+    except OSError:
+        pass  # the helper falls back to its defaults
+
+
 def autostart(url: str) -> None:
     parts = urlsplit(url)
     cmd = [sys.executable, "-I", str(ROOT / "scripts" / "prove_local.py"), "start",
@@ -119,6 +150,14 @@ def main() -> int:
             except (OSError, subprocess.SubprocessError) as exc:
                 warn(f"could not start the local Prove service: {exc}")
 
+    if event == "session-start":
+        publish_endpoint(url, mode)
+    if strict and event == "user-prompt" and not reachable(url, token):
+        # UserPromptSubmit is the event that can refuse work; exit 2 blocks the prompt.
+        print(f"atp provenance (strict): Prove at {url} is unreachable; "
+              "prompt refused so no work goes unrecorded.", file=sys.stderr)
+        return 2
+
     os.environ["PROVENANCE_SERVICE_URL"] = url
     os.environ["PROVENANCE_STRICT"] = "1" if strict else "0"
     os.environ.pop("PROV_API_TOKEN_FILE", None)
@@ -127,7 +166,10 @@ def main() -> int:
     else:
         os.environ.pop("PROV_API_TOKEN", None)
     data = os.environ.get("CLAUDE_PLUGIN_DATA") or str(Path.home() / ".prove")
-    os.environ["PROVENANCE_STATE_DIR"] = str(Path(data) / "atp-session")
+    # Cursor state belongs to one ledger: namespace it by destination so a
+    # changed service_url or ledger_path registers a fresh root.
+    dest = hashlib.sha256(f"{url}|{opt('LEDGER_PATH')}".encode()).hexdigest()[:16]
+    os.environ["PROVENANCE_STATE_DIR"] = str(Path(data) / "atp-session" / dest)
 
     sys.path.insert(0, str(ROOT / "server"))
     import atp_hooks  # noqa: E402  (reads the environment set above)

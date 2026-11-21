@@ -70,6 +70,35 @@ def _sanitize(text: str) -> str:
     return _SECRET_RE.sub("[REDACTED]", text or "")
 
 
+# Plugin build: the same credential shapes, masked inside transcript bytes
+# before they leave this process. Each match is replaced by the same number
+# of '*' bytes, so offsets and Prove's consumed_to stay aligned with the file.
+_SECRET_BYTES_RE = re.compile(_SECRET_RE.pattern.encode("ascii"))
+# Prove rejects a chunk with more than INGEST_MAX_STEPS (500) records.
+MAX_RECORDS = 400
+
+
+def _mask(chunk: bytes) -> bytes:
+    return _SECRET_BYTES_RE.sub(lambda m: b"*" * len(m.group(0)), chunk)
+
+
+def _transcript_chunks(path: str, offset: int, budget: int, max_records: int = MAX_RECORDS):
+    """Newline-terminated chunks from offset, capped by bytes and record count."""
+    from trajectory import iter_file_chunks
+
+    for chunk in iter_file_chunks(path, offset, budget):
+        while chunk:
+            cut, newlines = -1, 0
+            while newlines < max_records:
+                cut = chunk.find(b"\n", cut + 1)
+                if cut < 0:
+                    break
+                newlines += 1
+            piece = chunk if cut < 0 or cut == len(chunk) - 1 else chunk[: cut + 1]
+            yield piece
+            chunk = chunk[len(piece):]
+
+
 def _post(path: str, payload: dict) -> dict | None:
     try:
         req = urllib.request.Request(
@@ -239,14 +268,12 @@ def _ingest_transcript(
     """
     if not transcript_path or not Path(transcript_path).is_file():
         return True
-    from trajectory import iter_file_chunks
-
     cursors = state.setdefault("trajectories", {})
     cursor = cursors.setdefault(trajectory_id, {"offset": 0, "chain": None})
     retried = False
     while True:
         progressed = False
-        for chunk in iter_file_chunks(transcript_path, cursor["offset"], CHUNK_BYTES):
+        for chunk in _transcript_chunks(transcript_path, cursor["offset"], CHUNK_BYTES):
             payload = {
                 "parent_prov_id": state["root_prov_id"],
                 "manifest_binding_id": state["binding_id"],
@@ -254,7 +281,7 @@ def _ingest_transcript(
                 "harness": "claude_code_jsonl",
                 "offset": cursor["offset"],
                 "prior_chain_sha256": cursor["chain"],
-                "chunk": chunk.decode("utf-8", errors="strict"),
+                "chunk": _mask(chunk).decode("utf-8", errors="strict"),
                 "workspace_root": state.get("workspace_root"),
                 "agent_id": "claude-code",
                 "session_id": state["session_id"],

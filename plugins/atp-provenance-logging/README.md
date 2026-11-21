@@ -100,7 +100,7 @@ harness-captured steps count.
 | `ledger_path` | `~/.prove/provenance.db` | local ledger file |
 | `capture` | on | forward session transcripts |
 | `autostart` | on | start the local service at session start |
-| `strict` | off | block the session when Prove is unreachable (otherwise warn and continue) |
+| `strict` | off | refuse prompts while Prove is unreachable (otherwise warn and continue) |
 
 ## What gets recorded
 

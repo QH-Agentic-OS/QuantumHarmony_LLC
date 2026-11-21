@@ -214,7 +214,9 @@
   const MODES = ['Build', 'Review', 'Organize', 'Capture', 'Synthesize', 'Commit'];
   const ACTION_TYPES = ['Summarize', 'Scaffold', 'Execute', 'Reflect'];
   const PRIORITIES = ['Critical', 'High', 'Normal', 'Low'];
-  const DEFAULT_PROVENANCE_URL = 'http://localhost:8787';
+  // Served over HTTP(S) by Prove (local or hosted): talk to the same origin.
+  // Opened from disk (prove-offline.html): fall back to the local service.
+  const DEFAULT_PROVENANCE_URL = /^https?:$/.test(window.location.protocol) ? window.location.origin : 'http://127.0.0.1:8787';
   // IDs come from the browser's CSPRNG (crypto.randomUUID, or getRandomValues
   // as a fallback), never Math.random.
   const generateUUID = () => {
@@ -540,8 +542,9 @@
       } : e.kind === 'atp_prompt' ? {
         summary: e.atp_context
       } : null,
-      status: e.result === 'error' ? 'error' : e.result === 'rejected' ? 'warn' : 'ok',
-      error: e.result === 'error' ? e.payload_summary || 'error' : null,
+      // The service's own status/error win; result (recording outcome) is a fallback.
+      status: e.status === 'error' || e.result === 'error' ? 'error' : e.status === 'retry' || e.result === 'rejected' ? 'warn' : 'ok',
+      error: e.error || (e.status === 'error' || e.result === 'error' ? e.payload_summary || 'error' : null),
       latency_ms: null,
       tags: e.kind === 'atp_prompt' ? ['atp', 'prompt'] : e.target === 'atp_response' ? ['atp', 'response', 'terminus'] : [e.action_type],
       timestamp: e.ts || null,
