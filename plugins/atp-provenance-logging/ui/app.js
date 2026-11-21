@@ -1208,6 +1208,7 @@
         const root = normalized.find(l => l.parent_prov_id === null && l.phase === 'atp_prompt');
         const pid = root ? root.prov_id : normalized[0]?.parent_prov_id || null;
         setImportedSession(null);
+        setServiceVerified(null); // a verdict from an earlier live chain is not this file's
         setLogs(normalized);
         setParentProvId(pid);
         setSourceMode('import');

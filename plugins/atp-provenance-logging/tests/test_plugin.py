@@ -495,6 +495,10 @@ class DashboardDefaultsTests(unittest.TestCase):
 
     def test_dashboard_keeps_the_recorded_actor(self):
         self.assertIn("actor: e.actor || e.agent_id || 'unknown'", (UI / "app.js").read_text())
+        # a chain import never inherits the previous live chain's /verify verdict
+        app = (UI / "app.js").read_text()
+        chain_import = app[app.index("format === 'agent_logs' || format === 'agent_logs_wrapped'"):]
+        self.assertLess(chain_import.index("setServiceVerified(null)"), chain_import.index("setLogs(normalized)"))
 
     def test_dashboard_defaults_to_its_own_origin(self):
         js = (UI / "app.js").read_text()
