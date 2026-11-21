@@ -32,6 +32,24 @@ def free_port():
         return s.getsockname()[1]
 
 
+def loopback_available() -> bool:
+    """True when this environment lets the tests open and reach a loopback socket."""
+    try:
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            s.listen(1)
+            with socket.socket() as c:
+                c.settimeout(0.5)
+                c.connect(("127.0.0.1", s.getsockname()[1]))
+        return True
+    except (PermissionError, OSError):
+        return False
+
+
+LOOPBACK_AVAILABLE = loopback_available()
+NO_LOOPBACK = "Loopback network access not permitted in this execution environment"
+
+
 class OfflineUITests(unittest.TestCase):
     def test_pages_load_nothing_from_the_network(self):
         for page in ("index.html", "prove-offline.html"):
@@ -61,6 +79,7 @@ class OfflineUITests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
 
+@unittest.skipUnless(LOOPBACK_AVAILABLE, NO_LOOPBACK)
 class LocalServiceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -473,6 +492,7 @@ class DashboardDefaultsTests(unittest.TestCase):
                                                          "new_source": "sales_forecast = 12345"}, None)
         self.assertNotIn("sales_forecast", json.dumps(cell))
 
+    @unittest.skipUnless(LOOPBACK_AVAILABLE, NO_LOOPBACK)
     def test_concurrent_starts_leave_a_stoppable_service(self):
         with tempfile.TemporaryDirectory() as home:
             env = dict(os.environ, HOME=home)
