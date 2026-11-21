@@ -50,7 +50,9 @@ In the SQLite ledger of the Prove you chose: by default
 `~/.prove/provenance.db` on your computer. Prove never deletes ledger entries;
 the ledger is kept until you delete the file. Uninstalling the plugin does not
 delete it. The hooks keep small cursor files (offsets and hashes, no content)
-in the plugin's data folder.
+in the plugin's data folder, and one receipt per workspace (the session's root
+id, binding id, service URL and mode, no content, no token) in
+`~/.prove/active-sessions/`, removed when the session ends.
 
 ## Turning it off
 

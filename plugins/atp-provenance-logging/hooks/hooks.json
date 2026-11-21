@@ -7,7 +7,10 @@
           {
             "type": "command",
             "command": "python3",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/prove_hook.py", "session-start"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/prove_hook.py",
+              "session-start"
+            ],
             "timeout": 20
           }
         ]
@@ -19,7 +22,10 @@
           {
             "type": "command",
             "command": "python3",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/prove_hook.py", "user-prompt"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/prove_hook.py",
+              "user-prompt"
+            ],
             "timeout": 30
           }
         ]
@@ -31,7 +37,10 @@
           {
             "type": "command",
             "command": "python3",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/prove_hook.py", "post-tool"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/prove_hook.py",
+              "post-tool"
+            ],
             "timeout": 30
           }
         ]
@@ -43,7 +52,10 @@
           {
             "type": "command",
             "command": "python3",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/prove_hook.py", "stop"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/prove_hook.py",
+              "stop"
+            ],
             "timeout": 30
           }
         ]
@@ -55,8 +67,26 @@
           {
             "type": "command",
             "command": "python3",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/prove_hook.py", "subagent-stop"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/prove_hook.py",
+              "subagent-stop"
+            ],
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/prove_hook.py",
+              "session-end"
+            ],
+            "timeout": 10
           }
         ]
       }

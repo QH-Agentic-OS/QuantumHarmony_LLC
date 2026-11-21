@@ -16,7 +16,7 @@ Needs Python 3.11 or newer on your PATH as `python3`. No packages to install.
 
 | Part | What it does |
 |---|---|
-| **Hooks** (`hooks/hooks.json`) | On session start, each prompt, each tool call, stop and sub-agent stop, forward the new part of the session transcript to Prove (`POST /ingest/trajectory`). Prove, not the agent, decides what gets recorded. |
+| **Hooks** (`hooks/hooks.json`) | On session start, each prompt, each tool call, stop and sub-agent stop, forward the new part of the session transcript to Prove (`POST /ingest/trajectory`). Prove, not the agent, decides what gets recorded. At session end the workspace's capture receipt is dropped. |
 | **Skill** (`skills/atp-provenance-logging`) | The ATP contract: one root `prov_id` per session, an `atp_prompt` and an `atp_response` marker for each ATP prompt under it, the root in the ATP header, halt-and-alert if any write fails. |
 | **Prove service** (`server/`) | Stdlib-only Python + SQLite. Manifest binding (declaration → version → session → route), `prev_action_hash` chaining, redaction, `/verify`. `hosted_service.py` is the single-port, token-protected variant for your own deployment. |
 | **Mission Control** (`ui/`) | The dashboard: live chain, walk-back, import, simulate. Network-free: React 18.3.1 is vendored, CSS is precompiled, no CDN, no eval. |

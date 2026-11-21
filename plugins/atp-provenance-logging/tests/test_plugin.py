@@ -251,18 +251,35 @@ class LocalServiceTests(unittest.TestCase):
         found = list((Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session").glob("*/scoped.json"))
         self.assertEqual(len(found), 1)  # the dead ledger registered nothing, and nothing was reused
 
-    def test_helper_follows_the_endpoint_the_hooks_published(self):
-        self.hook("session-start", {"session_id": "endpoint"}, mode="offline")
-        cfg = json.loads((Path(self.env["HOME"]) / ".prove" / "plugin-endpoint.json").read_text())
-        self.assertEqual(cfg, {"mode": "offline", "service_url": f"http://127.0.0.1:{self.port}"})
+    def test_helper_follows_this_workspaces_receipt(self):
+        work = Path(self.tmp.name) / "receipt"
+        work.mkdir(exist_ok=True)
+        payload = {"session_id": "endpoint", "cwd": str(work)}
+        self.hook("session-start", payload, mode="offline")
         env = {k: v for k, v in self.env.items() if k != "PROVENANCE_SERVICE_URL"}
+        sub = work / "sub"
+        sub.mkdir(exist_ok=True)
         run = subprocess.run([sys.executable, "-I", str(SCRIPTS / "prove_log.py"), "begin", "--context", "t"],
-                             env=env, capture_output=True, text=True, timeout=30)
+                             env=env, cwd=sub, capture_output=True, text=True, timeout=30)
         self.assertEqual(run.returncode, 0, run.stderr)
-        self.assertRegex(run.stdout.strip(), r"^[0-9a-f-]{36}$")
+        state = json.loads(next((Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session").glob("*/endpoint.json")).read_text())
+        self.assertEqual(run.stdout.strip(), state["root_prov_id"])  # found from a subfolder
 
+    def test_receipts_end_with_the_session_or_when_capture_is_off(self):
+        work = Path(self.tmp.name) / "stale"
+        work.mkdir(exist_ok=True)
+        receipts = Path(self.env["HOME"]) / ".prove" / "active-sessions"
+        self.hook("session-start", {"session_id": "first", "cwd": str(work)})
+        self.assertEqual(len(list(receipts.glob("*.json"))) >= 1, True)
+        before = set(receipts.glob("*.json"))
+        self.hook("session-end", {"session_id": "other", "cwd": str(work)})
+        self.assertEqual(set(receipts.glob("*.json")), before)  # not this session's to drop
+        self.hook("session-start", {"session_id": "second", "cwd": str(work)}, capture="false")
+        self.assertEqual(len(set(receipts.glob("*.json"))), len(before) - 1)
+        self.hook("session-start", {"session_id": "third", "cwd": str(work)})
+        self.hook("session-end", {"session_id": "third", "cwd": str(work)})
+        self.assertEqual(len(set(receipts.glob("*.json"))), len(before) - 1)
 
-class TranscriptChunkTests(unittest.TestCase):
     def setUp(self):
         sys.path.insert(0, str(ROOT / "server"))
         import atp_hooks

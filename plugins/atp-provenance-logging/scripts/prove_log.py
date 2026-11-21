@@ -14,8 +14,8 @@ captured session for this workspace (capture off, another harness, or
     python3 prove_log.py end "$ID" --summary "refactor done, tests green"
     python3 prove_log.py chain "$ID" > run.json     # import into the dashboard
 
-Service: $PROVENANCE_SERVICE_URL, else the endpoint the plugin's hooks wrote
-to ~/.prove/plugin-endpoint.json, else http://127.0.0.1:8787. A hosted Prove
+Service: $PROVENANCE_SERVICE_URL, else the endpoint in this workspace's
+capture receipt (~/.prove/active-sessions/), else http://127.0.0.1:8787. A hosted Prove
 also needs $PROV_API_TOKEN (sent only over https or to loopback); the plugin
 never writes the token to disk.
 Entries written here are agent-authored, so Prove marks them self-reported.
@@ -37,15 +37,28 @@ from urllib.parse import quote
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "server"))
 from provenance_http import open_provenance_request  # noqa: E402
 
+def _receipt() -> dict | None:
+    """This workspace's capture receipt (or a parent folder's), written by the hooks."""
+    import hashlib
+
+    here = Path.cwd().resolve()
+    for folder in (here, *here.parents):
+        key = hashlib.sha256(str(folder).encode()).hexdigest()[:20]
+        try:
+            return json.loads((Path.home() / ".prove" / "active-sessions" / f"{key}.json").read_text())
+        except (OSError, ValueError):
+            continue
+    return None
+
+
 def _endpoint() -> tuple[str, str]:
-    """$PROVENANCE_SERVICE_URL, else the endpoint the plugin's hooks published."""
+    """$PROVENANCE_SERVICE_URL, else this workspace's capture receipt, else local."""
     if os.environ.get("PROVENANCE_SERVICE_URL"):
         return os.environ["PROVENANCE_SERVICE_URL"].rstrip("/"), os.environ.get("PROVENANCE_MODE", "")
-    try:
-        cfg = json.loads((Path.home() / ".prove" / "plugin-endpoint.json").read_text())
-        return str(cfg["service_url"]).rstrip("/"), str(cfg.get("mode", ""))
-    except (OSError, ValueError, KeyError, TypeError):
-        return "http://127.0.0.1:8787", ""
+    receipt = _receipt() or {}
+    if receipt.get("service_url"):
+        return str(receipt["service_url"]).rstrip("/"), str(receipt.get("mode", ""))
+    return "http://127.0.0.1:8787", ""
 
 
 SERVICE, MODE = _endpoint()
@@ -93,18 +106,10 @@ def state_path(prov_id: str) -> Path:
 
 
 def active_session() -> dict | None:
-    """The hooks' capture root for this workspace (or a parent folder), if any."""
-    import hashlib
-
-    here = Path.cwd().resolve()
-    for folder in (here, *here.parents):
-        key = hashlib.sha256(str(folder).encode()).hexdigest()[:20]
-        try:
-            info = json.loads((Path.home() / ".prove" / "active-sessions" / f"{key}.json").read_text())
-        except (OSError, ValueError):
-            continue
-        if str(info.get("service_url", "")).rstrip("/") == SERVICE and info.get("root_prov_id"):
-            return info
+    """The hooks' capture root for this workspace, if it is for this service."""
+    info = _receipt()
+    if info and str(info.get("service_url", "")).rstrip("/") == SERVICE and info.get("root_prov_id"):
+        return info
     return None
 
 

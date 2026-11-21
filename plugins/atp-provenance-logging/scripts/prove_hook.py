@@ -99,20 +99,6 @@ def reachable(url: str, token: str | None) -> bool:
         return False
 
 
-def publish_endpoint(url: str, mode: str) -> None:
-    """Tell prove_log.py (run from the Bash tool) which Prove this plugin uses.
-
-    Only the mode and the URL are written; the hosted token stays in the
-    credential store, so prove_log.py needs PROV_API_TOKEN for hosted mode.
-    """
-    path = Path.home() / ".prove" / "plugin-endpoint.json"
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"mode": mode, "service_url": url}) + "\n")
-    except OSError:
-        pass  # the helper falls back to its defaults
-
-
 ACTIVE_DIR = Path.home() / ".prove" / "active-sessions"
 
 
@@ -120,7 +106,21 @@ def active_key(cwd: str) -> str:
     return hashlib.sha256(str(Path(cwd).resolve()).encode()).hexdigest()[:20]
 
 
-def publish_session(hook: dict, state_dir: Path, url: str) -> None:
+def forget_session(hook: dict, only_own: bool) -> None:
+    """Drop this workspace's receipt so prove_log.py stops using it."""
+    cwd = hook.get("cwd")
+    if not cwd:
+        return
+    path = ACTIVE_DIR / f"{active_key(cwd)}.json"
+    try:
+        if only_own and json.loads(path.read_text()).get("session_id") != hook.get("session_id"):
+            return  # another live session in this workspace owns it
+        path.unlink()
+    except (OSError, ValueError):
+        pass  # nothing published, or already gone
+
+
+def publish_session(hook: dict, state_dir: Path, url: str, mode: str) -> None:
     """Point prove_log.py at this session's capture root, keyed by workspace.
 
     ATP prompt/response markers then land under the same root as every
@@ -135,6 +135,7 @@ def publish_session(hook: dict, state_dir: Path, url: str) -> None:
         (ACTIVE_DIR / f"{active_key(cwd)}.json").write_text(json.dumps({
             "root_prov_id": state["root_prov_id"], "binding_id": state["binding_id"],
             "session_id": sid, "workspace": str(Path(cwd).resolve()), "service_url": url,
+            "mode": mode,
         }) + "\n")
     except (OSError, ValueError, KeyError, TypeError):
         pass  # best effort: prove_log.py falls back to minting its own root
@@ -154,7 +155,18 @@ def autostart(url: str) -> None:
 def main() -> int:
     event = sys.argv[1] if len(sys.argv) > 1 else ""
     strict = flag("STRICT", False)
+    raw = sys.stdin.read()
+    try:
+        hook = json.loads(raw) if raw.strip() else {}
+    except ValueError:
+        hook = {}
+    sys.stdin = io.StringIO(raw)  # atp_hooks reads the same payload
+    if event == "session-end":
+        forget_session(hook, only_own=True)
+        return 0
     if not flag("CAPTURE", True):
+        if event == "session-start":
+            forget_session(hook, only_own=False)  # a stale receipt must not adopt this session
         return 0
     try:
         url, token, mode = resolve()
@@ -187,8 +199,6 @@ def main() -> int:
                      f"Stop it (prove_local.py stop --port {port}) and start a new session.")
             return 2 if strict and event == "user-prompt" else 0
 
-    if event == "session-start":
-        publish_endpoint(url, mode)
     if strict and event == "user-prompt" and not reachable(url, token):
         # UserPromptSubmit is the event that can refuse work; exit 2 blocks the prompt.
         print(f"atp provenance (strict): Prove at {url} is unreachable; "
@@ -208,19 +218,12 @@ def main() -> int:
     dest = hashlib.sha256(f"{url}|{opt('LEDGER_PATH')}".encode()).hexdigest()[:16]
     os.environ["PROVENANCE_STATE_DIR"] = str(Path(data) / "atp-session" / dest)
 
-    raw = sys.stdin.read()
-    try:
-        hook = json.loads(raw) if raw.strip() else {}
-    except ValueError:
-        hook = {}
-    sys.stdin = io.StringIO(raw)  # atp_hooks reads the same payload
-
     sys.path.insert(0, str(ROOT / "server"))
     import atp_hooks  # noqa: E402  (reads the environment set above)
 
     rc = atp_hooks.main()
     if event in ("session-start", "user-prompt"):
-        publish_session(hook, Path(os.environ["PROVENANCE_STATE_DIR"]), url)
+        publish_session(hook, Path(os.environ["PROVENANCE_STATE_DIR"]), url, mode)
     return rc
 
 
