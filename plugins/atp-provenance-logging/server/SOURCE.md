@@ -1,7 +1,7 @@
 # Source of server/ and ui/
 
 Synced from the Prove repository, branch
-`fix/local-origin-guard-and-content-digests` at commit `6da6ac5`
+`fix/local-origin-guard-and-content-digests` at commit `c582794`
 (QH-Agentic-OS/prove#12, draft). Fixes found in review here are made in Prove
 first and copied back, so the two copies do not drift.
 

@@ -321,6 +321,15 @@ def _send_oversized(state: dict, transcript_path: str, trajectory_id: str, curso
         "oversized_record": {"bytes": len(record), "sha256": hashlib.sha256(record).hexdigest()},
     }
     status, body = _post_status("/ingest/trajectory", payload)
+    if status == 409 and body and "expected_offset" in body:
+        # Prove already has this record (an earlier reply was lost) or the
+        # cursor is stale: continue from the offset and chain head it names.
+        expected = (body["expected_offset"], body.get("expected_prior_chain_sha256"))
+        if expected == (cursor["offset"], cursor["chain"]):
+            return False
+        cursor.update(offset=expected[0], chain=expected[1])
+        _save_state(state)
+        return True
     if status != 200 or not body or body.get("consumed_to") != cursor["offset"] + len(record):
         global _LAST_INGEST_ERROR
         _LAST_INGEST_ERROR = (body or {}).get("error") if isinstance(body, dict) else None
