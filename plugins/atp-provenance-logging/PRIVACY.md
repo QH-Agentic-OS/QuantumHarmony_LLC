@@ -38,7 +38,9 @@ Prove parses each transcript record into a step and stores:
   keys redacted, plus a sha256 of the full arguments;
 - file paths relative to the workspace (or a digest), line and byte counts;
 - sha256 digests and byte counts, not the text, of message content and
-  thinking;
+  thinking, and of file content passed to Write, Edit and NotebookEdit;
+- for a single transcript record over 1 MiB, only its position, length and
+  digest;
 - the hash chain that makes the record tamper-evident.
 
 Prove does not keep the raw transcript. Entries an agent writes itself with

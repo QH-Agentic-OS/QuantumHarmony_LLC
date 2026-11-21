@@ -502,8 +502,8 @@ class DashboardDefaultsTests(unittest.TestCase):
 
     def test_dashboard_defaults_to_its_own_origin(self):
         js = (UI / "app.js").read_text()
-        self.assertIn("window.location.origin", js)
-        self.assertNotIn("'http://localhost:8787'", js)
+        self.assertIn("fetch(`${origin}/health`", js)  # served by Prove: use its own origin
+        self.assertIn("body.service === 'atp-provenance'", js)
         self.assertIn("e.phase || ARTEMIS_ACTION_TO_PHASE", js)
         self.assertIn("e.input && typeof e.input === 'object'", js)
         self.assertIn("/verify?parent_prov_id=", js)  # live chains pass only on the service's verdict

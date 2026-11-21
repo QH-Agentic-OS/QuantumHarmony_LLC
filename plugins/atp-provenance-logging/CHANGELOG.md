@@ -20,6 +20,10 @@
   cannot read or change the local ledger.
 - **Strict mode** refuses a prompt when Prove is unreachable, rejects the
   token, the endpoint setting is invalid, or capture fails.
+- **Fixes made in Prove first** (QH-Agentic-OS/prove#12) and synced here:
+  `/verify` catches deleted final steps; a transcript record over 1 MiB is
+  recorded as its digest instead of stalling capture; loopback traffic skips
+  environment proxies.
 - Adds `PRIVACY.md`, plugin tests, and `server/SOURCE.md` sync notes.
 
 ## 1.0.0

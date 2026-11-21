@@ -214,9 +214,11 @@
   const MODES = ['Build', 'Review', 'Organize', 'Capture', 'Synthesize', 'Commit'];
   const ACTION_TYPES = ['Summarize', 'Scaffold', 'Execute', 'Reflect'];
   const PRIORITIES = ['Critical', 'High', 'Normal', 'Low'];
-  // Served over HTTP(S) by Prove (local or hosted): talk to the same origin.
-  // Opened from disk (prove-offline.html): fall back to the local service.
-  const DEFAULT_PROVENANCE_URL = /^https?:$/.test(window.location.protocol) ? window.location.origin : 'http://127.0.0.1:8787';
+  // The local service, unless the page itself is served by Prove (hosted, or
+  // the plugin's local service): then the page's own origin, found by probing
+  // its /health once at startup. A separate static server (launch.sh) or a
+  // file opened from disk keeps this default.
+  const DEFAULT_PROVENANCE_URL = 'http://localhost:8787';
   // IDs come from the browser's CSPRNG (crypto.randomUUID, or getRandomValues
   // as a fallback), never Math.random.
   const generateUUID = () => {
@@ -1158,7 +1160,7 @@
     // Bumped whenever the live polling effect is torn down, so a /chain
     // response that resolves after the user switches chains is dropped.
     const liveChainGenRef = useRef(0);
-    // Plugin build: the service's own /verify verdict for a live chain.
+    // The service's own /verify verdict for a live chain.
     // null = not verified by a service (simulated or imported data).
     const [serviceVerified, setServiceVerified] = useState(null);
     const validation = useMemo(() => runValidation(header), [header]);
@@ -1269,6 +1271,22 @@
 
     // ── Live service ─────────────────────────────────────────
 
+    useEffect(() => {
+      if (!/^https?:$/.test(window.location.protocol)) return;
+      const origin = window.location.origin;
+      if (origin === DEFAULT_PROVENANCE_URL) return;
+      let cancelled = false;
+      fetch(`${origin}/health`, {
+        signal: AbortSignal.timeout(3000)
+      }).then(resp => resp.ok ? resp.json() : null).then(body => {
+        if (!cancelled && body && body.service === 'atp-provenance') {
+          setServiceUrl(current => current === DEFAULT_PROVENANCE_URL ? origin : current);
+        }
+      }).catch(() => {});
+      return () => {
+        cancelled = true;
+      };
+    }, []);
     const checkHealth = useCallback(async () => {
       setServiceStatus('checking');
       try {

@@ -17,24 +17,14 @@ import os
 import re
 import sqlite3
 import sys
-import uuid  # noqa: F401  (kept importable: tests patch uuid4 through this module)
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from provenance_core import (  # noqa: E402,F401
-    LAYER_ORDER,
-    REF_KEYS,
-    SCHEMA,
+from provenance_core import (  # noqa: E402
     ProvenanceStore,
-    binding_refs,
-    body_hash,
-    complete_refs,
-    file_hash,
     get_collision_map,
     get_runtime_metadata,
-    now_iso,
-    redact,
 )
 
 DB_PATH = os.environ.get("PROV_DB", "provenance.db")
@@ -106,6 +96,17 @@ def validate_ref_chain(conn, refs: dict):
     return store().validate_ref_chain(conn, refs)
 
 
+def _is_loopback_host(name):
+    import ipaddress
+
+    if name in ("localhost", ""):
+        return name == "localhost"
+    try:
+        return ipaddress.ip_address(name.strip("[]")).is_loopback
+    except ValueError:
+        return False
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "ATPProvenance/0.1"
 
@@ -114,10 +115,50 @@ class Handler(BaseHTTPRequestHandler):
         return False
 
     # ── plumbing ──────────────────────────────────────────
+    # The local service has no login, so a page open in the user's browser
+    # must not be able to read or change it. Only the dashboard's own origins
+    # get CORS; any other Origin (including "null") is refused, a cross-site
+    # request without one is refused, and on a loopback bind the Host header
+    # must be loopback too (DNS rebinding). Clients that send no Origin
+    # (hooks, scripts, curl) are unaffected.
+    def _allowed_origins(self):
+        host = self.headers.get("Host", "")
+        ui_port = os.environ.get("UI_PORT", "5175")
+        extra = {
+            o.strip().rstrip("/")
+            for o in os.environ.get("PROV_ALLOWED_ORIGINS", "").split(",")
+            if o.strip()
+        }
+        return {
+            f"http://{host}",
+            f"https://{host}",
+            f"http://localhost:{ui_port}",
+            f"http://127.0.0.1:{ui_port}",
+        } | extra
+
+    def _request_trusted(self):
+        bound = str(self.server.server_address[0])
+        if _is_loopback_host(bound):
+            name = urlparse(f"http://{self.headers.get('Host', '')}").hostname or ""
+            if not _is_loopback_host(name):
+                return False
+        origin = self.headers.get("Origin")
+        if origin is not None:
+            return origin in self._allowed_origins()
+        return self.headers.get("Sec-Fetch-Site", "none") in ("same-origin", "none")
+
+    def _refuse_untrusted(self):
+        self.send_response(403)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def _cors(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        origin = self.headers.get("Origin")
+        if origin is not None and origin in self._allowed_origins():
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
     def _send(self, code, payload):
         body = json.dumps(payload, indent=2).encode()
@@ -167,12 +208,16 @@ class Handler(BaseHTTPRequestHandler):
         print(f"  {self.address_string()} {fmt % args}")
 
     def do_OPTIONS(self):
+        if not self._request_trusted():
+            return self._refuse_untrusted()
         self.send_response(204)
         self._cors()
         self.end_headers()
 
     # ── routes ────────────────────────────────────────────
     def do_GET(self):
+        if not self._request_trusted():
+            return self._refuse_untrusted()
         try:
             return self._dispatch_get()
         except (sqlite3.Error, ValueError, TypeError, KeyError):
@@ -254,9 +299,14 @@ class Handler(BaseHTTPRequestHandler):
         if route.path == "/verify":
             return self._send(*store().verify_chain(first("parent_prov_id")))
 
+        # Any other path: answer instead of closing the connection silently.
+        return self._send(404, {"error": "not found"})
+
         self._send(404, {"error": "not found", "routes": ROUTES})
 
     def do_POST(self):
+        if not self._request_trusted():
+            return self._refuse_untrusted()
         route = urlparse(self.path)
         owned = route.path.startswith("/v1/")
         if owned and not self._owner_api_authorized():
@@ -321,7 +371,7 @@ class Handler(BaseHTTPRequestHandler):
                 )
             return self._send(status, result)
 
-        self._send(404, {"error": "not found"})
+        return self._send(404, {"error": "not found"})
 
 
 def probe(host: str, port: int, timeout: float = 1.0) -> str:
@@ -341,7 +391,8 @@ def probe(host: str, port: int, timeout: float = 1.0) -> str:
             if json.loads(r.read()).get("service") == "atp-provenance":
                 return "ours"
     except (urllib.error.URLError, json.JSONDecodeError, OSError, KeyError):
-        pass
+        # Something holds the port but does not answer /health like Prove.
+        return "foreign"
     return "foreign"
 
 

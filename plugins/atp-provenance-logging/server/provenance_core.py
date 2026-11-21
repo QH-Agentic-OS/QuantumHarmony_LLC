@@ -355,7 +355,8 @@ def get_runtime_metadata() -> dict:
     return {
         "component_id": "atp-mission-control",
         "build_inputs": {
-            # Plugin build: the dashboard lives in ../ui next to this folder.
+            # The repo keeps the dashboard beside this file; the plugin keeps
+            # it in ../ui.
             "artifact_hash": file_hash(os.path.join(root, "app.js"))
             or file_hash(os.path.join(root, os.pardir, "ui", "app.js")),
             "instruction_hash": file_hash(instruction_path),
@@ -787,12 +788,54 @@ class ProvenanceStore:
             info.update(chunks=info["chunks"] + 1, consumed_bytes=chunk["end_offset"], chain_sha256=chunk["chain_sha256"])
             by_chunk[(tid, chunk["chunk_no"])] = chunk
         indexes: dict[str, list] = {}
+        present: dict[tuple, set] = {}
         for step in steps:
             tid = step["trajectory_id"]
             indexes.setdefault(tid, []).append(step["step_index"])
+            present.setdefault((tid, step["chunk_no"]), set()).add(step["step_index"])
             chunk = by_chunk.get((tid, step["chunk_no"]))
             if not chunk or not chunk["start_offset"] <= step["source_offset"] < chunk["end_offset"]:
                 problems.append({"kind": "step_outside_chunk", "prov_id": step["prov_id"], "trajectory_id": tid})
+        # Each chunk records which steps it produced. Check them against the
+        # rows that survive, so deleting the last steps (or every step of a
+        # chunk) shows as missing instead of a shorter, intact-looking capture.
+        for (tid, chunk_no), chunk in by_chunk.items():
+            count = chunk["step_count"] or 0
+            if not count:
+                continue
+            have = present.get((tid, chunk_no), set())
+            if chunk["harness"] == "trajectory_json":
+                # Producer-numbered steps need not be contiguous; the count must hold.
+                if len(have) != count:
+                    problems.append({
+                        "kind": "chunk_steps_missing",
+                        "trajectory_id": tid,
+                        "chunk_no": chunk_no,
+                        "missing_count": count - len(have),
+                    })
+                continue
+            first = chunk["first_step_index"]
+            if first is None:
+                problems.append({"kind": "chunk_step_range_unknown", "trajectory_id": tid, "chunk_no": chunk_no})
+                continue
+            expected = set(range(first, first + count))
+            lost = sorted(expected - have)
+            if lost:
+                problems.append({
+                    "kind": "chunk_steps_missing",
+                    "trajectory_id": tid,
+                    "chunk_no": chunk_no,
+                    "missing_step_indexes": lost[:50],
+                    "missing_count": len(lost),
+                })
+            extra = sorted(have - expected)
+            if extra:
+                problems.append({
+                    "kind": "step_outside_chunk_range",
+                    "trajectory_id": tid,
+                    "chunk_no": chunk_no,
+                    "step_indexes": extra[:50],
+                })
         for tid, found in indexes.items():
             summary.setdefault(tid, {"chunks": 0, "steps": 0, "consumed_bytes": 0, "chain_sha256": None})
             summary[tid]["steps"] = len(found)
@@ -1314,6 +1357,8 @@ class ProvenanceStore:
     # the agent chose to write. See STEP_CAPTURE.md.
     INGEST_MAX_CHUNK = 1536 * 1024
     INGEST_MAX_STEPS = 500
+    # A single record too large for a chunk is sent as length + digest only.
+    INGEST_MAX_OVERSIZED = 1 << 30
 
     @staticmethod
     def _requires_harness_capture(conn, binding_id) -> bool:
@@ -1375,7 +1420,7 @@ class ProvenanceStore:
         allowed = {
             "parent_prov_id", "manifest_binding_id", "trajectory_id", "harness",
             "offset", "chunk", "prior_chain_sha256", "workspace_root", "agent_id",
-            "model", "session_id", "parent_agent_ref",
+            "model", "session_id", "parent_agent_ref", "oversized_record",
         }
         required = {"parent_prov_id", "manifest_binding_id", "trajectory_id", "harness", "offset", "chunk"}
         if not isinstance(payload, dict) or not required <= payload.keys() or not payload.keys() <= allowed:
@@ -1399,13 +1444,31 @@ class ProvenanceStore:
             or payload.get("model") is not None and not isinstance(payload["model"], str)
         ):
             return 422, {"error": "invalid_request"}
-        chunk = chunk_text.encode("utf-8")
-        if len(chunk) > self.INGEST_MAX_CHUNK:
-            return 413, {"error": "chunk too large", "max_bytes": self.INGEST_MAX_CHUNK}
-        try:
-            records, consumed = harness_capture.split_records(harness, chunk)
-        except (ValueError, UnicodeError):
-            return 422, {"error": "malformed transcript record"}
+        oversized = payload.get("oversized_record")
+        if oversized is not None:
+            # One JSONL record larger than a chunk: Prove records where it is,
+            # how long it is and its sha256, so capture continues past it and
+            # the chain still folds in the same bytes the producer read.
+            if (
+                harness != "claude_code_jsonl"
+                or chunk_text != ""
+                or not isinstance(oversized, dict)
+                or set(oversized) != {"bytes", "sha256"}
+                or type(oversized["bytes"]) is not int
+                or not 0 < oversized["bytes"] <= self.INGEST_MAX_OVERSIZED
+                or not isinstance(oversized["sha256"], str)
+                or not HASH_PATTERN.fullmatch(oversized["sha256"])
+            ):
+                return 422, {"error": "invalid_request"}
+            chunk, records, consumed = b"", [], oversized["bytes"]
+        else:
+            chunk = chunk_text.encode("utf-8")
+            if len(chunk) > self.INGEST_MAX_CHUNK:
+                return 413, {"error": "chunk too large", "max_bytes": self.INGEST_MAX_CHUNK}
+            try:
+                records, consumed = harness_capture.split_records(harness, chunk)
+            except (ValueError, UnicodeError):
+                return 422, {"error": "malformed transcript record"}
         if len(records) > self.INGEST_MAX_STEPS:
             return 413, {"error": "too many records in one chunk", "max_steps": self.INGEST_MAX_STEPS}
         agent_id = payload.get("agent_id") or "harness"
@@ -1448,7 +1511,7 @@ class ProvenanceStore:
                         "expected_offset": expected_offset,
                         "expected_prior_chain_sha256": expected_chain,
                     }
-                if consumed == 0 or not records:
+                if oversized is None and (consumed == 0 or not records):
                     return 200, {
                         "trajectory_id": trajectory_id,
                         "steps": 0,
@@ -1461,11 +1524,15 @@ class ProvenanceStore:
                     if head and head["first_step_index"] is not None
                     else 0
                 )
-                try:
-                    steps = harness_capture.normalize(harness, records, root_dir, next_index)
-                except (ValueError, TypeError, AttributeError):
-                    return 422, {"error": "malformed transcript record"}
-                chunk_sha = hashlib.sha256(chunk[:consumed]).hexdigest()
+                if oversized is not None:
+                    steps = [harness_capture.oversized_step(next_index, consumed, oversized["sha256"])]
+                    chunk_sha = oversized["sha256"]
+                else:
+                    try:
+                        steps = harness_capture.normalize(harness, records, root_dir, next_index)
+                    except (ValueError, TypeError, AttributeError):
+                        return 422, {"error": "malformed transcript record"}
+                    chunk_sha = hashlib.sha256(chunk[:consumed]).hexdigest()
                 chain = hashlib.sha256(((prior or "") + chunk_sha).encode()).hexdigest()
                 ingested_at = now_iso()
                 previous = conn.execute(

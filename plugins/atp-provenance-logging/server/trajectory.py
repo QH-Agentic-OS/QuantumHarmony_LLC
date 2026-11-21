@@ -35,9 +35,11 @@ MAX_STRING = 512
 MAX_LIST = 50
 MAX_KEYS = 50
 MAX_DEPTH = 2
-CONTENT_KEYS = {"content", "message", "body", "text", "new_string", "old_string", "prompt",
-                # plugin build: NotebookEdit and text-editor tool content too
-                "new_source", "file_text", "new_str", "old_str"}
+CONTENT_KEYS = {
+    "content", "message", "body", "text", "new_string", "old_string", "prompt",
+    # NotebookEdit cell source and the text-editor tool's file content.
+    "new_source", "file_text", "new_str", "old_str",
+}
 
 _TIMING = re.compile(r"^Created At: (\S+)\nCompleted At: (\S+)", re.M)
 _FILE_PATH = re.compile(r"^File Path: `?file://([^`\n]+)`?", re.M)
@@ -89,7 +91,7 @@ def bounded_str(value: str) -> Any:
 def bounded(value: Any, root: str | None = None, key: str = "", depth: int = 0) -> Any:
     """Shrink arbitrary tool arguments into a storable, hash-stable shape."""
     if key.lower() in CONTENT_KEYS and value is not None:
-        return digest(value)  # plugin build: any type, so JSON content is never kept
+        return digest(value)  # any type: decoded JSON content is still content
     if isinstance(value, str):
         if looks_like_path(value) and "\n" not in value:
             return path_ref(value, root)
@@ -136,8 +138,11 @@ def _ms(start: str | None, end: str | None) -> int | None:
 
 def _tool_call(index: int, name: Any, args: Any, root: str | None, tool_use_id: Any = None) -> dict:
     args = args if isinstance(args, dict) else {"value": args}
-    # Plugin build: content stays as sent, so its digest is the file text's.
-    decoded = {str(k): v if str(k).lower() in CONTENT_KEYS else _decode_arg(v) for k, v in args.items()}
+    # Content stays as sent, so its digest is the digest of the file text.
+    decoded = {
+        str(k): v if str(k).lower() in CONTENT_KEYS else _decode_arg(v)
+        for k, v in args.items()
+    }
     call = {
         "call_index": index,
         "tool_name": bounded_str(str(name or "unknown")),
@@ -336,6 +341,21 @@ def normalize(harness: str, records: list[tuple[int, Any]], root: str | None, ne
         step["source_offset"] = offset
         steps.append(step)
     return steps
+
+
+def oversized_step(step_index: int, size: int, sha256_hex: str) -> dict:
+    """A record too large to send: kept as its position, length and digest."""
+    step = _base_step(
+        step_index=step_index,
+        source="system",
+        step_type="oversized_record",
+        status="omitted",
+        content_sha256=sha256_hex,
+        content_bytes=size,
+        truncated_fields=["record"],
+    )
+    step["source_offset"] = 0
+    return step
 
 
 def describe(step: dict) -> str:

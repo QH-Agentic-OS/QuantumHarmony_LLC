@@ -11,22 +11,22 @@ from urllib.parse import urlsplit
 
 import provenance_service as service
 
-# Plugin build: the network-free dashboard lives in ../ui (React vendored).
-ROOT = Path(__file__).resolve().parent.parent / "ui"
+_HERE = Path(__file__).resolve().parent
+# This repo keeps the dashboard beside this file; the marketplace plugin keeps
+# its network-free build (index.html + vendored React) in ../ui.
+if (_HERE / "atp-mission-control.html").is_file():
+    ROOT, PAGE = _HERE, "atp-mission-control.html"
+else:
+    ROOT, PAGE = _HERE.parent / "ui", "index.html"
 ASSETS = {
-    "/": ("index.html", "text/html; charset=utf-8"),
-    "/atp-mission-control.html": ("index.html", "text/html; charset=utf-8"),
+    "/": (PAGE, "text/html; charset=utf-8"),
+    "/atp-mission-control.html": (PAGE, "text/html; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/app.css": ("app.css", "text/css; charset=utf-8"),
-    "/vendor/react.production.min.js": (
-        "vendor/react.production.min.js",
-        "text/javascript; charset=utf-8",
-    ),
-    "/vendor/react-dom.production.min.js": (
-        "vendor/react-dom.production.min.js",
-        "text/javascript; charset=utf-8",
-    ),
 }
+for _name in ("react.production.min.js", "react-dom.production.min.js"):
+    if (ROOT / "vendor" / _name).is_file():
+        ASSETS[f"/vendor/{_name}"] = (f"vendor/{_name}", "text/javascript; charset=utf-8")
 
 
 def load_token(directory):
@@ -111,11 +111,12 @@ class Handler(service.Handler):
             self.end_headers()
             self.wfile.write(body)
             return
-        super().do_GET()
+        return super().do_GET()
 
     def do_POST(self):
         if self.authorized():
-            super().do_POST()
+            return super().do_POST()
+        return None
 
 
 def upgrade_if_requested(db_path):

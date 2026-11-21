@@ -47,8 +47,8 @@ def open_provenance_request(request, *, timeout):
     # operator's SSL_CERT_FILE / SSL_CERT_DIR trust configuration.
     handlers = [_NoRedirect()]
     if _is_loopback(parsed.hostname):
-        # Plugin build: loopback traffic never goes through an environment
-        # proxy, so offline mode cannot leak through HTTP_PROXY.
+        # Loopback traffic never goes through an environment proxy: a
+        # local ledger must not leak through HTTP_PROXY.
         handlers.append(urllib.request.ProxyHandler({}))
     return urllib.request.build_opener(*handlers).open(request, timeout=timeout)
 

@@ -9,7 +9,8 @@ with zero children. These hooks execute the same documented contract at the
 moment each event actually happens. They ADD a writer — no existing write
 path (handshakes YAML, tool-server JSONL, MCP tools) is replaced.
 
-Wiring (plugin build: hooks/hooks.json via scripts/prove_hook.py):
+Wiring (.claude/settings.json in this repo; hooks/hooks.json via
+scripts/prove_hook.py in the marketplace plugin):
   SessionStart      -> session-start   mint root + bind 4 manifest layers
   UserPromptSubmit  -> user-prompt     ingest new transcript records
   PostToolUse       -> post-tool       ingest new transcript records
@@ -23,14 +24,15 @@ Capture mode (PROVENANCE_CAPTURE):
   summary               legacy behaviour: the hook composes one short child
                         log per event via POST /log.
 
-State: .claude/.atp-session/<session_id>.json holds {root_prov_id, binding_id}.
+State: <STATE_DIR>/<session_id>.json holds {root_prov_id, binding_id, cursors}.
 SessionStart is idempotent — an existing state file is reused, never re-bound
 (re-binding a layer NULLs everything beneath it and 422s later children).
 
 Failure posture: fail-soft. Hooks always exit 0 so a provenance outage never
 blocks the session; the outage is surfaced via systemMessage. Set
-PROVENANCE_STRICT=1 to make session-start exit 2 (blocking) instead —
-the skill's halt-and-alert posture.
+PROVENANCE_STRICT=1 for the skill's halt-and-alert posture: session-start
+exits 2, and user-prompt exits 2 (refusing the prompt) when registration or
+transcript capture fails.
 """
 
 from __future__ import annotations
@@ -50,13 +52,14 @@ SERVICE = os.environ.get("PROVENANCE_SERVICE_URL", "http://localhost:8787").rstr
 STRICT = os.environ.get("PROVENANCE_STRICT", "0") == "1"
 CAPTURE = os.environ.get("PROVENANCE_CAPTURE", "transcript")
 CHUNK_BYTES = 512 * 1024
-# Plugin build: one record larger than CHUNK_BYTES gets a single larger read,
-# kept well under the service's 1.5 MiB chunk / 2 MiB body limits after JSON escaping.
+# One record larger than CHUNK_BYTES gets a single larger read, kept well
+# under the service's 1.5 MiB chunk / 2 MiB body limits after JSON escaping.
+# A record larger than that is sent as its length and digest only.
 LARGE_CHUNK_BYTES = 1024 * 1024
 REPO = Path(__file__).resolve().parent
-# Plugin build: the plugin folder is replaced on every update, so cursor state
-# lives in PROVENANCE_STATE_DIR (set by scripts/prove_hook.py to the plugin's
-# persistent data dir). Falls back to the Prove repo layout.
+# Cursor state lives in PROVENANCE_STATE_DIR when set (the plugin points it at
+# its persistent data dir, since its own folder is replaced on update);
+# otherwise in this repo's .claude/.atp-session.
 STATE_DIR = Path(
     os.environ.get("PROVENANCE_STATE_DIR") or (REPO / ".claude" / ".atp-session")
 )
@@ -73,7 +76,7 @@ def _sanitize(text: str) -> str:
     return _SECRET_RE.sub("[REDACTED]", text or "")
 
 
-# Plugin build: the same credential shapes, masked inside transcript bytes
+# The same credential shapes, masked inside transcript bytes
 # before they leave this process. Each match is replaced by the same number
 # of '*' bytes, so offsets and Prove's consumed_to stay aligned with the file.
 _SECRET_BYTES_RE = re.compile(_SECRET_RE.pattern.encode("ascii"))
@@ -259,8 +262,67 @@ def _save_state(state: dict) -> None:
 _LAST_INGEST_ERROR: str | None = None
 
 
+def payload_base(state: dict, trajectory_id: str, parent_agent_ref: str | None, model: str | None) -> dict:
+    payload = {
+        "parent_prov_id": state["root_prov_id"],
+        "manifest_binding_id": state["binding_id"],
+        "trajectory_id": trajectory_id,
+        "harness": "claude_code_jsonl",
+        "workspace_root": state.get("workspace_root"),
+        "agent_id": "claude-code",
+        "session_id": state["session_id"],
+    }
+    if parent_agent_ref:
+        payload["parent_agent_ref"] = parent_agent_ref
+    if model:
+        payload["model"] = model
+    return payload
+
+
+def _send_oversized(state: dict, transcript_path: str, trajectory_id: str, cursor: dict, base: dict):
+    """Record one transcript record too large to send as its length and digest.
+
+    Returns True when Prove recorded it, False on failure, None while the
+    record has no terminating newline yet. The digest is of the masked
+    bytes, so ``trajectory.py chain`` over a masked copy still matches.
+    """
+    try:
+        with open(transcript_path, "rb") as handle:
+            handle.seek(cursor["offset"])
+            parts = []
+            while True:
+                block = handle.read(LARGE_CHUNK_BYTES)
+                if not block:
+                    return None
+                cut = block.find(b"\n")
+                if cut >= 0:
+                    parts.append(block[: cut + 1])
+                    break
+                parts.append(block)
+    except OSError:
+        return False
+    record = _mask(b"".join(parts))
+    payload = {
+        **base,
+        "offset": cursor["offset"],
+        "prior_chain_sha256": cursor["chain"],
+        "chunk": "",
+        "oversized_record": {"bytes": len(record), "sha256": hashlib.sha256(record).hexdigest()},
+    }
+    status, body = _post_status("/ingest/trajectory", payload)
+    if status != 200 or not body or body.get("consumed_to") != cursor["offset"] + len(record):
+        global _LAST_INGEST_ERROR
+        _LAST_INGEST_ERROR = (body or {}).get("error") if isinstance(body, dict) else None
+        _save_state(state)
+        return False
+    _warn(f"a transcript record of {len(record)} bytes was recorded as its digest only")
+    cursor.update(offset=body["consumed_to"], chain=body.get("chain_sha256"))
+    _save_state(state)
+    return True
+
+
 def _main_tid(state: dict) -> str:
-    """Plugin build: the main trajectory id (namespaced after a root change)."""
+    """The main trajectory id (namespaced after a root change)."""
     return state.get("trajectory_id") or state["session_id"]
 
 
@@ -287,21 +349,11 @@ def _ingest_transcript(
         progressed = False
         for chunk in _transcript_chunks(transcript_path, cursor["offset"], budget):
             payload = {
-                "parent_prov_id": state["root_prov_id"],
-                "manifest_binding_id": state["binding_id"],
-                "trajectory_id": trajectory_id,
-                "harness": "claude_code_jsonl",
+                **payload_base(state, trajectory_id, parent_agent_ref, model),
                 "offset": cursor["offset"],
                 "prior_chain_sha256": cursor["chain"],
                 "chunk": _mask(chunk).decode("utf-8", errors="strict"),
-                "workspace_root": state.get("workspace_root"),
-                "agent_id": "claude-code",
-                "session_id": state["session_id"],
             }
-            if parent_agent_ref:
-                payload["parent_agent_ref"] = parent_agent_ref
-            if model:
-                payload["model"] = model
             status, body = _post_status("/ingest/trajectory", payload)
             if status == 409 and body and "expected_offset" in body and not retried:
                 cursor.update(offset=body["expected_offset"], chain=body.get("expected_prior_chain_sha256"))
@@ -327,8 +379,14 @@ def _ingest_transcript(
                 if budget < LARGE_CHUNK_BYTES:
                     budget = LARGE_CHUNK_BYTES  # one oversized record: retry with a larger read
                     continue
-                _warn("a transcript record exceeds 1 MiB; capture is paused at that record")
-                return False
+                sent = _send_oversized(state, transcript_path, trajectory_id, cursor, payload_base(
+                    state, trajectory_id, parent_agent_ref, model))
+                if sent is None:
+                    return True  # the record is still being written
+                if not sent:
+                    return False
+                budget = CHUNK_BYTES
+                continue
             return True
 
 
@@ -352,7 +410,7 @@ def _capture(hook: dict, state: dict) -> bool:
     if not ok and not state.get("trajectory_id") and (_LAST_INGEST_ERROR or "").startswith(
         "trajectory_id belongs to another root"
     ):
-        # Plugin build: this session already has a trajectory under another
+        # This session already has a trajectory under another
         # root in the same ledger (settings changed mid-session). Record this
         # root's capture under its own id instead of failing forever.
         state["trajectory_id"] = f"{state['session_id']}@{state['root_prov_id'][:12]}"
@@ -365,7 +423,7 @@ def _capture(hook: dict, state: dict) -> bool:
 
 
 def _retry_pending_subagents(state: dict) -> None:
-    """Plugin build: resend sub-agent transcripts whose SubagentStop ingest failed."""
+    """Resend sub-agent transcripts whose SubagentStop ingest failed."""
     pending = state.get("pending_subagents") or {}
     for trajectory_id, path in list(pending.items()):
         if _ingest_transcript(state, path, trajectory_id, parent_agent_ref=_main_tid(state)):
@@ -378,7 +436,7 @@ def _retry_pending_subagents(state: dict) -> None:
 
 
 def _refuse(reason: str) -> int:
-    """Plugin build: strict mode blocks the prompt (UserPromptSubmit exit 2)."""
+    """Strict mode blocks the prompt (UserPromptSubmit exit 2)."""
     print(f"atp provenance (strict): {reason}; prompt refused so no work goes unrecorded.",
           file=sys.stderr)
     return 2
@@ -442,7 +500,7 @@ def cmd_post_tool(hook: dict) -> int:
 
 
 def cmd_stop(hook: dict) -> int:
-    # Plugin build: a continued Stop still captures (cursor ingest is
+    # A continued Stop still captures (cursor ingest is
     # idempotent and never asks Claude to continue); only the legacy summary
     # path is skipped.
     if hook.get("stop_hook_active") and CAPTURE != "transcript":
@@ -476,8 +534,9 @@ def cmd_stop(hook: dict) -> int:
                                 text = " ".join(parts)
                         elif isinstance(content, str) and content:
                             text = content
-        except OSError:
-            pass
+        except OSError as exc:
+            # Fail-soft: the stop is still logged, just without the reply text.
+            _warn(f"could not read the transcript at stop ({exc}); logging without the reply text")
     ok = _log_child(
         state,
         phase="atp_response",
