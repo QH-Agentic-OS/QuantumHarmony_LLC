@@ -11,7 +11,7 @@ Changed for this public plugin build:
 
 | File | Change |
 |---|---|
-| `atp_hooks.py` | Cursor state goes to `PROVENANCE_STATE_DIR` (the plugin data folder, one subfolder per destination ledger) instead of the plugin folder, which is replaced on update. `instruction_hash` hashes the working project's `CLAUDE.md`, not this folder's. Transcript chunks are masked for credential shapes before sending (same length, so offsets hold; `trajectory.py chain` must be run on a masked copy) capped at 400 records so the service's 500-record limit never stalls capture, a single record over 512 KiB gets one read of up to 1 MiB, and a sub-agent transcript that fails at SubagentStop is retried by later hooks. |
+| `atp_hooks.py` | Cursor state goes to `PROVENANCE_STATE_DIR` (the plugin data folder, one subfolder per destination ledger) instead of the plugin folder, which is replaced on update. `instruction_hash` hashes the working project's `CLAUDE.md`, not this folder's. Transcript chunks are masked for credential shapes before sending (same length, so offsets hold; `trajectory.py chain` must be run on a masked copy) capped at 400 records so the service's 500-record limit never stalls capture, a single record over 512 KiB gets one read of up to 1 MiB, a sub-agent transcript that fails at SubagentStop is retried by later hooks, and with `PROVENANCE_STRICT=1` a prompt is refused (exit 2) when registration or transcript capture fails. |
 | `provenance_http.py` | Loopback requests bypass environment proxies (`HTTP_PROXY`), so offline mode cannot leak through one. |
 | `provenance_core.py` | `/runtime/metadata` `artifact_hash` also looks for the dashboard at `../ui/app.js`. |
 | `hosted_service.py` | Serves the network-free dashboard from `../ui`, including `vendor/`. |

@@ -336,12 +336,14 @@ def cmd_session_start(hook: dict) -> int:
     return 0
 
 
-def _capture(hook: dict, state: dict) -> None:
+def _capture(hook: dict, state: dict) -> bool:
     """Transcript-mode capture for any hook event in the main session."""
     session_id = state["session_id"]
-    if not _ingest_transcript(state, hook.get("transcript_path"), session_id, model=hook.get("model")):
+    ok = _ingest_transcript(state, hook.get("transcript_path"), session_id, model=hook.get("model"))
+    if not ok:
         _warn("transcript ingest failed; the next hook will resend from the last receipt")
     _retry_pending_subagents(state)
+    return ok
 
 
 def _retry_pending_subagents(state: dict) -> None:
@@ -357,13 +359,23 @@ def _retry_pending_subagents(state: dict) -> None:
     _save_state(state)
 
 
+def _refuse(reason: str) -> int:
+    """Plugin build: strict mode blocks the prompt (UserPromptSubmit exit 2)."""
+    print(f"atp provenance (strict): {reason}; prompt refused so no work goes unrecorded.",
+          file=sys.stderr)
+    return 2
+
+
 def cmd_user_prompt(hook: dict) -> int:
     state = _require_state(hook)
     if state is None:
+        if STRICT:
+            return _refuse("could not register this session with Prove")
         _warn("service unreachable; prompt not mirrored")
         return 0
     if CAPTURE == "transcript":
-        _capture(hook, state)
+        if not _capture(hook, state) and STRICT:
+            return _refuse("Prove did not accept the session transcript")
         return 0
     prompt = _sanitize(hook.get("prompt") or "")
     ok = _log_child(

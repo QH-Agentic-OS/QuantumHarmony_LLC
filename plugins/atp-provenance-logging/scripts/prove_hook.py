@@ -84,7 +84,13 @@ def resolve() -> tuple[str | None, str | None, str]:
     return url or LOCAL_URL.format(port=port), None, mode
 
 
-def reachable(url: str, token: str | None) -> bool:
+def readiness(url: str, token: str | None, mode: str) -> str | None:
+    """None when Prove will accept writes, else why not.
+
+    /health is public on a hosted Prove, so a hosted check also calls an
+    authenticated route: a wrong, missing or rotated token must fail here.
+    """
+    import urllib.error
     import urllib.request
 
     sys.path.insert(0, str(ROOT / "server"))
@@ -92,11 +98,26 @@ def reachable(url: str, token: str | None) -> bool:
 
     if token:
         os.environ["PROV_API_TOKEN"] = token
+    else:
+        os.environ.pop("PROV_API_TOKEN", None)
+    os.environ.pop("PROV_API_TOKEN_FILE", None)
     try:
         with open_provenance_request(urllib.request.Request(f"{url}/health"), timeout=3) as r:
-            return json.loads(r.read()).get("service") == "atp-provenance"
+            if json.loads(r.read()).get("service") != "atp-provenance":
+                return f"{url} is not a Prove service"
     except Exception:  # noqa: BLE001 — any failure means "not reachable"
-        return False
+        return f"Prove at {url} is unreachable"
+    if mode != "hosted":
+        return None
+    try:
+        with open_provenance_request(urllib.request.Request(f"{url}/runtime/metadata"), timeout=3):
+            return None
+    except urllib.error.HTTPError as exc:
+        if exc.code in (401, 403):
+            return f"Prove at {url} rejected the api_token"
+        return f"Prove at {url} answered {exc.code}"
+    except Exception:  # noqa: BLE001
+        return f"Prove at {url} is unreachable"
 
 
 class session_lock:
@@ -230,11 +251,13 @@ def main() -> int:
                      f"Stop it (prove_local.py stop --port {port}) and start a new session.")
             return 2 if strict and event == "user-prompt" else 0
 
-    if strict and event == "user-prompt" and not reachable(url, token):
-        # UserPromptSubmit is the event that can refuse work; exit 2 blocks the prompt.
-        print(f"atp provenance (strict): Prove at {url} is unreachable; "
-              "prompt refused so no work goes unrecorded.", file=sys.stderr)
-        return 2
+    if strict and event == "user-prompt":
+        problem = readiness(url, token, mode)
+        if problem:
+            # UserPromptSubmit is the event that can refuse work; exit 2 blocks the prompt.
+            print(f"atp provenance (strict): {problem}; "
+                  "prompt refused so no work goes unrecorded.", file=sys.stderr)
+            return 2
 
     os.environ["PROVENANCE_SERVICE_URL"] = url
     os.environ["PROVENANCE_STRICT"] = "1" if strict else "0"

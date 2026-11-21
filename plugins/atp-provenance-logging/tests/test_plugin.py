@@ -266,6 +266,33 @@ class LocalServiceTests(unittest.TestCase):
         self.assertIn("unreachable", result.stderr)
         self.assertEqual(self.hook("user-prompt", {"session_id": "strict"}, strict="true").returncode, 0)
 
+    def test_strict_hosted_refuses_prompts_when_the_token_is_rejected(self):
+        port, token = free_port(), "t" * 40
+        db = Path(self.tmp.name) / "hosted" / "provenance.db"
+        subprocess.run([sys.executable, "-I", str(SCRIPTS / "prove_local.py"), "init", "--db", str(db)],
+                       env=self.env, check=True, capture_output=True)
+        proc = subprocess.Popen([sys.executable, str(ROOT / "server" / "hosted_service.py")],
+                                env=dict(self.env, PROV_DB=str(db), PORT=str(port), PROV_API_TOKEN=token),
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            url = f"http://127.0.0.1:{port}"
+            for _ in range(50):
+                try:
+                    urllib.request.urlopen(f"{url}/health", timeout=0.5)
+                    break
+                except OSError:
+                    time.sleep(0.1)
+            options = dict(mode="hosted", service_url=url, strict="true", autostart="false", ledger_path="")
+            for bad in ("wrong" * 8, ""):
+                result = self.hook("user-prompt", {"session_id": "hosted-strict"}, api_token=bad, **options)
+                self.assertEqual(result.returncode, 2, bad)
+                self.assertIn("rejected the api_token", result.stderr)
+            good = self.hook("user-prompt", {"session_id": "hosted-strict"}, api_token=token, **options)
+            self.assertEqual(good.returncode, 0, good.stderr)
+        finally:
+            proc.terminate()
+            proc.wait(5)
+
     def test_state_is_scoped_to_the_ledger(self):
         payload = {"session_id": "scoped"}
         self.hook("session-start", payload)
