@@ -45,4 +45,16 @@ def open_provenance_request(request, *, timeout):
         request.add_unredirected_header("Authorization", f"Bearer {token}")
     # HTTPSHandler uses the default verified SSL context, including the
     # operator's SSL_CERT_FILE / SSL_CERT_DIR trust configuration.
-    return urllib.request.build_opener(_NoRedirect()).open(request, timeout=timeout)
+    handlers = [_NoRedirect()]
+    if _is_loopback(parsed.hostname):
+        # Plugin build: loopback traffic never goes through an environment
+        # proxy, so offline mode cannot leak through HTTP_PROXY.
+        handlers.append(urllib.request.ProxyHandler({}))
+    return urllib.request.build_opener(*handlers).open(request, timeout=timeout)
+
+
+def _is_loopback(hostname: str) -> bool:
+    try:
+        return ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return hostname == "localhost"

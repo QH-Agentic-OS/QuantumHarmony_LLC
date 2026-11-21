@@ -139,16 +139,25 @@ def main() -> int:
             warn("hosted mode is selected but no service URL is set; capture is off")
         return 0
 
-    if event == "session-start" and loopback(url) and flag("AUTOSTART", True):
+    if loopback(url):
         sys.path.insert(0, str(ROOT / "scripts"))
         import prove_local  # noqa: E402
 
         port = urlsplit(url).port or 8787
-        if not prove_local.health(port):
+        if event == "session-start" and flag("AUTOSTART", True) and not prove_local.health(port):
             try:
                 autostart(url)
             except (OSError, subprocess.SubprocessError) as exc:
                 warn(f"could not start the local Prove service: {exc}")
+        # Never record into a ledger other than the one selected in settings.
+        wanted = str(Path(opt("LEDGER_PATH") or prove_local.DEFAULT_DB).expanduser().resolve())
+        running = prove_local.running_ledger(port)
+        if prove_local.health(port) and running != wanted and (running or opt("LEDGER_PATH")):
+            if event == "session-start":
+                where = running or "a ledger this plugin did not start"
+                warn(f"the Prove on port {port} is using {where}, not {wanted}; capture is off. "
+                     f"Stop it (prove_local.py stop --port {port}) and start a new session.")
+            return 2 if strict and event == "user-prompt" else 0
 
     if event == "session-start":
         publish_endpoint(url, mode)

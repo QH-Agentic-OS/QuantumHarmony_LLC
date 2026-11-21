@@ -40,9 +40,10 @@ sys.path.insert(0, str(SERVER_DIR))
 
 DEFAULT_DB = Path(os.environ.get("PROV_DB") or Path.home() / ".prove" / "provenance.db")
 DEFAULT_PORT = int(os.environ.get("PROV_PORT", "8787"))
-RUN_DIR = Path(
-    os.environ.get("CLAUDE_PLUGIN_DATA") or Path.home() / ".prove"
-) / "run"
+# One place for run files, whether started by the hooks or by hand.
+RUN_DIR = Path.home() / ".prove" / "run"
+# Loopback probes never go through an environment proxy.
+_LOCAL = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 # Only these files are ever served; nothing else under the plugin is reachable.
 ASSETS = {
@@ -80,7 +81,7 @@ def is_loopback(host: str) -> bool:
 def health(port: int, host: str = "127.0.0.1", timeout: float = 1.0) -> dict | None:
     probe_host = "127.0.0.1" if host in ("0.0.0.0", "::") else host
     try:
-        with urllib.request.urlopen(
+        with _LOCAL.open(
             f"http://{probe_host}:{port}/health", timeout=timeout
         ) as r:
             body = json.loads(r.read())
@@ -150,12 +151,37 @@ def serve(db: Path, host: str, port: int) -> None:
         sys.exit(1)
     shown = "127.0.0.1" if host in ("0.0.0.0", "::") else host
     print(f"Prove  ->  http://{shown}:{port}/   (ledger: {db})", flush=True)
+    info = runfile(port)
+    try:
+        RUN_DIR.mkdir(parents=True, exist_ok=True)
+        info.write_text(json.dumps({"pid": os.getpid(), "db": str(db)}))
+    except OSError:
+        pass
+    def _term(*_):
+        raise KeyboardInterrupt  # stop cleanly on `prove_local.py stop` too
+
+    signal.signal(signal.SIGTERM, _term)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("  stopped.", file=sys.stderr)  # Ctrl-C is the normal way to stop
     finally:
         httpd.server_close()
+        info.unlink(missing_ok=True)
+
+
+def runfile(port: int) -> Path:
+    return RUN_DIR / f"prove-{port}.json"
+
+
+def running_ledger(port: int) -> str | None:
+    """Ledger of the plugin-started Prove on this port, or None if unknown."""
+    try:
+        info = json.loads(runfile(port).read_text())
+        os.kill(int(info["pid"]), 0)
+        return str(Path(info["db"]).resolve())
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
 
 
 def pidfile(port: int) -> Path:
@@ -249,7 +275,7 @@ def main(argv=None) -> int:
             ap.error("export needs a parent_prov_id")
         from urllib.parse import quote
 
-        with urllib.request.urlopen(
+        with _LOCAL.open(
             f"http://127.0.0.1:{a.port}/chain?parent_prov_id={quote(a.arg)}", timeout=10
         ) as r:
             sys.stdout.write(r.read().decode())

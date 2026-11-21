@@ -533,7 +533,8 @@
       model: null,
       // The service's explicit phase wins; the action_type map is the legacy fallback.
       phase: e.kind === 'atp_prompt' ? 'atp_prompt' : e.target === 'atp_response' || e.phase === 'atp_response' ? 'atp_response' : e.phase || ARTEMIS_ACTION_TO_PHASE[e.action_type] || 'tool_call',
-      input: e.kind === 'atp_prompt' ? {
+      // Keep the service's recorded input (e.g. captured tool args); synthesize only as a fallback.
+      input: e.input && typeof e.input === 'object' && Object.keys(e.input).length > 0 ? e.input : e.kind === 'atp_prompt' ? {
         atp_context: e.atp_context
       } : {
         target: e.target

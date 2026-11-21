@@ -97,6 +97,7 @@ class LocalServiceTests(unittest.TestCase):
     def hook(self, event, payload, **options):
         env = dict(self.env)
         env["CLAUDE_PLUGIN_OPTION_SERVICE_URL"] = f"http://127.0.0.1:{self.port}"
+        env["CLAUDE_PLUGIN_OPTION_LEDGER_PATH"] = str(self.db)
         env.update({f"CLAUDE_PLUGIN_OPTION_{k.upper()}": v for k, v in options.items()})
         return subprocess.run([sys.executable, "-I", str(SCRIPTS / "prove_hook.py"), event],
                               input=json.dumps(payload), env=env, capture_output=True, text=True, timeout=60)
@@ -160,6 +161,31 @@ class LocalServiceTests(unittest.TestCase):
             self.assertEqual(self.hook(event, payload).returncode, 0, event)
         state = json.loads(next((Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session").glob("*/big-record.json")).read_text())
         self.assertEqual(state["trajectories"]["big-record"]["offset"], transcript.stat().st_size)
+
+    def test_refuses_to_record_into_a_different_ledger(self):
+        other = Path(self.tmp.name) / "other.db"
+        result = self.hook("session-start", {"session_id": "wrong-ledger"}, ledger_path=str(other), autostart="false")
+        self.assertIn("capture is off", result.stdout)
+        self.assertEqual(list((Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session").glob("*/wrong-ledger.json")), [])
+
+    def test_offline_traffic_ignores_environment_proxies(self):
+        trap = socket.socket()
+        trap.bind(("127.0.0.1", 0))
+        trap.listen(5)
+        trap.settimeout(0.2)
+        self.addCleanup(trap.close)
+        proxy = f"http://127.0.0.1:{trap.getsockname()[1]}"
+        env_backup = dict(self.env)
+        self.env.update(HTTP_PROXY=proxy, http_proxy=proxy, NO_PROXY="", no_proxy="")
+        try:
+            result = self.hook("session-start", {"session_id": "proxied"}, mode="offline")
+        finally:
+            self.env.clear()
+            self.env.update(env_backup)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(len(list((Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session").glob("*/proxied.json"))), 1)
+        with self.assertRaises(socket.timeout):
+            trap.accept()  # nothing was sent to the proxy
 
     def test_offline_mode_refuses_a_remote_service(self):
         result = self.hook("session-start", {"session_id": "x"}, mode="offline",
@@ -265,6 +291,7 @@ class DashboardDefaultsTests(unittest.TestCase):
         self.assertIn("window.location.origin", js)
         self.assertNotIn("'http://localhost:8787'", js)
         self.assertIn("e.phase || ARTEMIS_ACTION_TO_PHASE", js)
+        self.assertIn("e.input && typeof e.input === 'object'", js)
 
 
 class RemoteBindTests(unittest.TestCase):
