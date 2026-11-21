@@ -17,7 +17,7 @@ Needs Python 3.11 or newer on your PATH as `python3`. No packages to install.
 | Part | What it does |
 |---|---|
 | **Hooks** (`hooks/hooks.json`) | On session start, each prompt, each tool call, stop and sub-agent stop, forward the new part of the session transcript to Prove (`POST /ingest/trajectory`). Prove, not the agent, decides what gets recorded. |
-| **Skill** (`skills/atp-provenance-logging`) | The ATP contract: one root `prov_id` per ATP prompt, the root in the ATP header, an `atp_response` entry at the end, halt-and-alert if any write fails. |
+| **Skill** (`skills/atp-provenance-logging`) | The ATP contract: one root `prov_id` per session, an `atp_prompt` and an `atp_response` marker for each ATP prompt under it, the root in the ATP header, halt-and-alert if any write fails. |
 | **Prove service** (`server/`) | Stdlib-only Python + SQLite. Manifest binding (declaration → version → session → route), `prev_action_hash` chaining, redaction, `/verify`. `hosted_service.py` is the single-port, token-protected variant for your own deployment. |
 | **Mission Control** (`ui/`) | The dashboard: live chain, walk-back, import, simulate. Network-free: React 18.3.1 is vendored, CSS is precompiled, no CDN, no eval. |
 | **Scripts** (`scripts/`) | `prove_local.py` runs Prove on your machine, `prove_log.py` writes ATP roots and steps from any agent or script, `build_offline.py` builds the single-file dashboard. |
@@ -77,8 +77,9 @@ cannot run the service, so live capture needs a Python host.
 
 ## The ATP flow
 
-Inside Claude Code the hooks record every step. The skill adds the ATP root
-and response:
+Inside Claude Code the hooks mint one root per session and record every step
+under it. The skill adds an `atp_prompt` and an `atp_response` marker to that
+same root, so one export holds the whole session:
 
 ```bash
 ID=$(python3 scripts/prove_log.py begin --context "ATP: refactor auth")

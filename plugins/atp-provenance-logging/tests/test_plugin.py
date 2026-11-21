@@ -187,6 +187,35 @@ class LocalServiceTests(unittest.TestCase):
         with self.assertRaises(socket.timeout):
             trap.accept()  # nothing was sent to the proxy
 
+    def test_atp_markers_share_the_session_root(self):
+        work = Path(self.tmp.name) / "atp"
+        work.mkdir(exist_ok=True)
+        transcript = work / "t.jsonl"
+        transcript.write_text(json.dumps({"type": "user", "timestamp": "2026-01-01T00:00:00Z", "cwd": str(work),
+                                          "message": {"role": "user", "content": "ATP: do it"}}) + "\n")
+        payload = {"session_id": "atp-session", "cwd": str(work), "transcript_path": str(transcript)}
+        self.assertEqual(self.hook("session-start", payload).returncode, 0)
+        env = {k: v for k, v in self.env.items() if k != "PROVENANCE_SERVICE_URL"}
+
+        def helper(*args):
+            run = subprocess.run([sys.executable, "-I", str(SCRIPTS / "prove_log.py"), *args],
+                                 env=env, cwd=work, capture_output=True, text=True, timeout=30)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            return run.stdout.strip()
+
+        root = helper("begin", "--context", "ATP: do it")
+        state = json.loads(next((Path(self.env["CLAUDE_PLUGIN_DATA"]) / "atp-session").glob("*/atp-session.json")).read_text())
+        self.assertEqual(root, state["root_prov_id"])
+        self.assertEqual(self.hook("stop", payload).returncode, 0)
+        helper("end", root, "--summary", "done")
+        chain = json.loads(helper("chain", root))
+        phases = [e.get("phase") or e.get("action_type") for e in chain]
+        self.assertIn("atp_prompt", phases[1:])          # the marker, after the root
+        self.assertIn("step", phases)                    # a harness-captured step under the same root
+        self.assertEqual(phases[-1], "atp_response")
+        self.assertTrue(json.loads(helper("verify", root))["verified"])
+        self.assertNotEqual(helper("begin", "--new-root", "--context", "separate"), root)
+
     def test_offline_mode_refuses_a_remote_service(self):
         result = self.hook("session-start", {"session_id": "x"}, mode="offline",
                            service_url="https://prove.example.com")

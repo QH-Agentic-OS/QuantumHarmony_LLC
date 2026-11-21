@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Explicit ATP provenance for one prompt: begin a root, log steps, end it.
+"""Explicit ATP provenance: mark a prompt, log steps, mark the response.
 
-The plugin's hooks already capture every step of a Claude Code session from
-the harness transcript. Use this helper for what the transcript cannot say on
-its own (the ATP prompt root and response), or from any other agent or script:
+The plugin's hooks capture every step of a Claude Code session under one
+session root. Inside such a session, `begin` logs an `atp_prompt` marker under
+that root and prints the root's prov_id, so the prompt, every captured step
+and the `atp_response` marker share one chain (one root per session). With no
+captured session for this workspace (capture off, another harness, or
+`--new-root`), `begin` binds and mints a root of its own instead:
 
     ID=$(python3 prove_log.py begin --agent claude-code --context "ATP: refactor auth")
     python3 prove_log.py log "$ID" --phase read_file --target src/auth.py --summary "read ok"
@@ -89,7 +92,32 @@ def state_path(prov_id: str) -> Path:
     return STATE / f"{prov_id}.json"
 
 
+def active_session() -> dict | None:
+    """The hooks' capture root for this workspace (or a parent folder), if any."""
+    import hashlib
+
+    here = Path.cwd().resolve()
+    for folder in (here, *here.parents):
+        key = hashlib.sha256(str(folder).encode()).hexdigest()[:20]
+        try:
+            info = json.loads((Path.home() / ".prove" / "active-sessions" / f"{key}.json").read_text())
+        except (OSError, ValueError):
+            continue
+        if str(info.get("service_url", "")).rstrip("/") == SERVICE and info.get("root_prov_id"):
+            return info
+    return None
+
+
 def begin(a) -> str:
+    session = None if a.new_root else active_session()
+    if session:
+        root = session["root_prov_id"]
+        STATE.mkdir(parents=True, exist_ok=True)
+        state_path(root).write_text(json.dumps(
+            {"binding_id": session["binding_id"], "agent": a.agent, "model": a.model}))
+        a.target, a.summary = "atp_prompt", a.context
+        log(root, a, phase="atp_prompt", tags=["atp", "prompt"])
+        return root
     session_id = a.session or str(uuid.uuid4())
     binding = f"atp-{session_id}"
     parent_ref = None
@@ -138,6 +166,8 @@ def main(argv=None) -> int:
     ap.add_argument("--actor")
     ap.add_argument("--model")
     ap.add_argument("--session")
+    ap.add_argument("--new-root", action="store_true",
+                    help="mint a separate root even inside a captured session")
     ap.add_argument("--context", default="")
     ap.add_argument("--plan")
     ap.add_argument("--phase", default="tool_call")

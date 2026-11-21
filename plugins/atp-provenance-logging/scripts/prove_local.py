@@ -155,8 +155,9 @@ def serve(db: Path, host: str, port: int) -> None:
     try:
         RUN_DIR.mkdir(parents=True, exist_ok=True)
         info.write_text(json.dumps({"pid": os.getpid(), "db": str(db)}))
-    except OSError:
-        pass
+    except OSError as err:
+        # Best effort: without it the hooks just can't confirm which ledger this is.
+        print(f"  note: could not write {info}: {err}", file=sys.stderr)
     def _term(*_):
         raise KeyboardInterrupt  # stop cleanly on `prove_local.py stop` too
 

@@ -11,8 +11,10 @@
   deployment over https with a token), set in the plugin settings.
 - **Network-free dashboard.** React 18.3.1 vendored; no CDN. Adds
   `ui/prove-offline.html`, a single file that opens from disk.
-- **Skill updated** to the current contract: manifest binding before mint,
-  root minted in one call, `prove_log.py` helper, `self_reported` entries.
+- **Skill updated** to the current contract: one root per session (minted by
+  the hooks), ATP prompt and response as markers under it, `prove_log.py`
+  helper, `self_reported` entries. Without a captured session the helper binds
+  and mints its own root.
 - Adds `PRIVACY.md`, plugin tests, and `server/SOURCE.md` sync notes.
 
 ## 1.0.0

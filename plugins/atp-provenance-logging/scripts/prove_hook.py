@@ -24,6 +24,7 @@ Fail-soft like the hooks it wraps: always exits 0 unless STRICT is on.
 from __future__ import annotations
 
 import hashlib
+import io
 import ipaddress
 import json
 import os
@@ -112,6 +113,33 @@ def publish_endpoint(url: str, mode: str) -> None:
         pass  # the helper falls back to its defaults
 
 
+ACTIVE_DIR = Path.home() / ".prove" / "active-sessions"
+
+
+def active_key(cwd: str) -> str:
+    return hashlib.sha256(str(Path(cwd).resolve()).encode()).hexdigest()[:20]
+
+
+def publish_session(hook: dict, state_dir: Path, url: str) -> None:
+    """Point prove_log.py at this session's capture root, keyed by workspace.
+
+    ATP prompt/response markers then land under the same root as every
+    captured step, so one export holds the whole session.
+    """
+    sid, cwd = hook.get("session_id"), hook.get("cwd")
+    if not sid or not cwd:
+        return
+    try:
+        state = json.loads((state_dir / f"{sid}.json").read_text())
+        ACTIVE_DIR.mkdir(parents=True, exist_ok=True)
+        (ACTIVE_DIR / f"{active_key(cwd)}.json").write_text(json.dumps({
+            "root_prov_id": state["root_prov_id"], "binding_id": state["binding_id"],
+            "session_id": sid, "workspace": str(Path(cwd).resolve()), "service_url": url,
+        }) + "\n")
+    except (OSError, ValueError, KeyError, TypeError):
+        pass  # best effort: prove_log.py falls back to minting its own root
+
+
 def autostart(url: str) -> None:
     parts = urlsplit(url)
     cmd = [sys.executable, "-I", str(ROOT / "scripts" / "prove_local.py"), "start",
@@ -180,10 +208,20 @@ def main() -> int:
     dest = hashlib.sha256(f"{url}|{opt('LEDGER_PATH')}".encode()).hexdigest()[:16]
     os.environ["PROVENANCE_STATE_DIR"] = str(Path(data) / "atp-session" / dest)
 
+    raw = sys.stdin.read()
+    try:
+        hook = json.loads(raw) if raw.strip() else {}
+    except ValueError:
+        hook = {}
+    sys.stdin = io.StringIO(raw)  # atp_hooks reads the same payload
+
     sys.path.insert(0, str(ROOT / "server"))
     import atp_hooks  # noqa: E402  (reads the environment set above)
 
-    return atp_hooks.main()
+    rc = atp_hooks.main()
+    if event in ("session-start", "user-prompt"):
+        publish_session(hook, Path(os.environ["PROVENANCE_STATE_DIR"]), url)
+    return rc
 
 
 if __name__ == "__main__":

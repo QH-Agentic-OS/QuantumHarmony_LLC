@@ -8,14 +8,16 @@ description: Create a parent provenance ID for each ATP prompt and log every age
 Every agent action must be traceable to the prompt that caused it. This plugin
 does that in two layers:
 
-1. **Harness capture (automatic).** The plugin's hooks forward the session
-   transcript to Prove (`POST /ingest/trajectory`) on every prompt, tool call,
-   stop and sub-agent stop. Prove parses each record into a hash-chained child
-   step. You do not write these entries and cannot leave any out.
-2. **ATP structure (this skill).** For an ATP prompt you add the root and the
-   response marker, and log any action the transcript cannot show (for
-   example work done outside Claude Code). Prove stamps these entries
-   `self_reported`, and a binding can be set to refuse them.
+1. **Harness capture (automatic).** At session start the hooks mint **one root
+   per session**, then forward the transcript to Prove (`POST /ingest/trajectory`)
+   on every prompt, tool call, stop and sub-agent stop. Prove parses each record
+   into a hash-chained child step of that root. You do not write these entries
+   and cannot leave any out.
+2. **ATP structure (this skill).** For each ATP prompt you add an `atp_prompt`
+   marker and an `atp_response` marker as children of the same session root,
+   and log any action the transcript cannot show (for example work done outside
+   Claude Code). Prove stamps these entries `self_reported`, and a binding can
+   be set to refuse them.
 
 ## When to use
 Use this skill whenever the user requests ATP/Artemis protocol **and** wants
@@ -40,15 +42,17 @@ provenance logging, asks for line-item tracking of agent actions in
 - Never log secrets. Prove redacts secret-named keys and obvious token shapes;
   keep inputs minimal anyway.
 
-### 1) Mint the ATP root (one per ATP prompt)
+### 1) Mark the ATP prompt
 ```bash
 ID=$(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/prove_log.py" begin \
   --agent claude-code --model "<model id if known>" \
   --context "<sanitized user prompt + context sources>" --plan "<one-line intent>")
 ```
-`begin` binds the four manifest layers (declaration → version → session →
-route) under one `manifest_binding_id`, then mints the root with that binding
-in a single `POST /mint`. Never re-send the root via `/log`.
+Inside a captured session, `begin` logs an `atp_prompt` marker under the
+session's root and prints that root's `prov_id`, so the prompt, every captured
+step and the response share one chain. With no captured session for this
+workspace (capture off, or another harness) it binds the four manifest layers
+and mints a root of its own; `--new-root` forces that.
 If it exits non-zero: **alert the user and stop**. No action is valid without
 the root `prov_id`.
 
@@ -96,7 +100,9 @@ Prove needs `Authorization: Bearer $PROV_API_TOKEN` over https.
 - `GET /health`
 
 ## Required guarantees
-- Exactly **one** root `prov_id` per ATP prompt.
+- Exactly **one** root `prov_id` per session (one per ATP prompt when there is
+  no captured session), with an `atp_prompt` and an `atp_response` marker for
+  each ATP prompt.
 - Every action is a child with `parent_prov_id` set to that root, chained by
   `prev_action_hash` within its binding.
 - Any missing provenance invalidates the output and triggers human review.
