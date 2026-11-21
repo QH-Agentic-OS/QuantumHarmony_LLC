@@ -771,8 +771,28 @@ class ProvenanceStore:
                 "SELECT prov_id,trajectory_id,chunk_no,step_index,source_offset FROM agent_steps WHERE parent_prov_id=?",
                 (parent_prov_id,),
             ).fetchall()
+            # The exported actions for captured steps: a log row and its refs.
+            actions = {
+                row[0]
+                for row in conn.execute(
+                    """SELECT al.prov_id FROM agent_logs al JOIN action_refs ar ON ar.prov_id=al.prov_id
+                       WHERE al.parent_prov_id=? AND al.kind='agent_step'""",
+                    (parent_prov_id,),
+                )
+            }
         finally:
             conn.close()
+        step_ids = {step["prov_id"] for step in steps}
+        for step in steps:
+            if step["prov_id"] not in actions:
+                problems.append({
+                    "kind": "step_action_missing",
+                    "prov_id": step["prov_id"],
+                    "trajectory_id": step["trajectory_id"],
+                    "step_index": step["step_index"],
+                })
+        for prov_id in sorted(actions - step_ids):
+            problems.append({"kind": "action_step_missing", "prov_id": prov_id})
         summary: dict[str, dict] = {}
         by_chunk = {}
         for chunk in chunks:
