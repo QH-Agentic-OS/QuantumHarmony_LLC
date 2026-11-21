@@ -136,11 +136,18 @@ def _ms(start: str | None, end: str | None) -> int | None:
         return None
 
 
-def _tool_call(index: int, name: Any, args: Any, root: str | None, tool_use_id: Any = None) -> dict:
+def _tool_call(
+    index: int, name: Any, args: Any, root: str | None, tool_use_id: Any = None, decode: bool = True
+) -> dict:
+    """``decode``: arguments may arrive JSON-encoded as strings (trajectory_json).
+
+    Claude's tool ``input`` is already decoded, so its values are recorded
+    as they are: a Bash command of ``"false"`` stays that string.
+    """
     args = args if isinstance(args, dict) else {"value": args}
     # Content stays as sent, so its digest is the digest of the file text.
     decoded = {
-        str(k): v if str(k).lower() in CONTENT_KEYS else _decode_arg(v)
+        str(k): v if not decode or str(k).lower() in CONTENT_KEYS else _decode_arg(v)
         for k, v in args.items()
     }
     call = {
@@ -314,7 +321,7 @@ def normalize_claude_record(record: dict, root: str | None, step_index: int) -> 
         step["tool_use_id"] = bounded_str(results[0]["tool_use_id"])
     for n, use in enumerate(tool_uses[:MAX_LIST]):
         step["tool_calls"].append(
-            _tool_call(n, use.get("name"), use.get("input"), root, use.get("id"))
+            _tool_call(n, use.get("name"), use.get("input"), root, use.get("id"), decode=False)
         )
         args = use.get("input") if isinstance(use.get("input"), dict) else {}
         target = args.get("file_path") or args.get("path") or args.get("notebook_path")
