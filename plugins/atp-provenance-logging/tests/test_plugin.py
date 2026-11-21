@@ -293,6 +293,37 @@ class LocalServiceTests(unittest.TestCase):
             proc.terminate()
             proc.wait(5)
 
+    def test_strict_refuses_prompts_when_the_endpoint_setting_is_invalid(self):
+        for options in (dict(mode="hosted", service_url=""), dict(mode="offline", service_url="https://prove.example.com")):
+            result = self.hook("user-prompt", {"session_id": "bad-config"}, strict="true", **options)
+            self.assertEqual(result.returncode, 2, options)
+            self.assertIn("prompt refused", result.stderr)
+
+    def test_local_api_refuses_other_origins_and_hosts(self):
+        def call(method, path, headers, body=None):
+            req = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", data=body, method=method,
+                                         headers=headers)
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            try:
+                with opener.open(req, timeout=3) as r:
+                    return r.status, dict(r.headers)
+            except urllib.error.HTTPError as e:
+                return e.code, dict(e.headers)
+
+        own = f"http://127.0.0.1:{self.port}"
+        bind = json.dumps({"layer": "declaration", "manifest_binding_id": "evil", "session_id": "evil",
+                           "body": {"identity": {"agent_id": "x"}}, "parent_ref": None}).encode()
+        for headers in ({"Origin": "http://evil.example"}, {"Origin": "null"}, {"Host": "evil.example"},
+                        {"Sec-Fetch-Site": "cross-site"}):
+            self.assertEqual(call("GET", "/health", headers)[0], 403, headers)
+            self.assertEqual(call("POST", "/manifest/bind", dict(headers, **{"Content-Type": "text/plain"}), bind)[0],
+                             403, headers)
+        self.assertEqual(call("OPTIONS", "/manifest/bind", {"Origin": "http://evil.example"})[0], 403)
+        status, headers = call("GET", "/health", {"Origin": own})
+        self.assertEqual(status, 200)
+        self.assertNotIn("Access-Control-Allow-Origin", headers)
+        self.assertEqual(call("GET", "/health", {})[0], 200)  # hooks and scripts send no Origin
+
     def test_state_is_scoped_to_the_ledger(self):
         payload = {"session_id": "scoped"}
         self.hook("session-start", payload)
@@ -382,6 +413,15 @@ class SubagentRetryTests(unittest.TestCase):
 
 
 class DashboardDefaultsTests(unittest.TestCase):
+    def test_json_file_content_is_kept_only_as_a_digest(self):
+        sys.path.insert(0, str(ROOT / "server"))
+        import trajectory
+
+        secret = '{"customer_name":"Confidential Customer","sales_forecast":12345}'
+        call = trajectory._tool_call(0, "Write", {"file_path": "a.json", "content": secret}, None)
+        self.assertNotIn("Confidential", json.dumps(call))
+        self.assertEqual(call["args"]["content"]["sha256"], hashlib.sha256(secret.encode()).hexdigest())
+
     def test_dashboard_defaults_to_its_own_origin(self):
         js = (UI / "app.js").read_text()
         self.assertIn("window.location.origin", js)

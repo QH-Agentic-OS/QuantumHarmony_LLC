@@ -78,6 +78,13 @@ def is_loopback(host: str) -> bool:
         return False
 
 
+def _is_ip_loopback(name: str) -> bool:
+    try:
+        return ipaddress.ip_address(name).is_loopback
+    except ValueError:
+        return False
+
+
 def health(port: int, host: str = "127.0.0.1", timeout: float = 1.0) -> dict | None:
     probe_host = "127.0.0.1" if host in ("0.0.0.0", "::") else host
     try:
@@ -101,11 +108,40 @@ def init_ledger(db: Path) -> bool:
     return True
 
 
-def make_handler():
+def make_handler(loopback_only: bool = True):
     import provenance_service as service
+    from urllib.parse import urlsplit
 
     class Handler(service.Handler):
         server_version = "ProveLocal/2.0"
+
+        # The local service has no login, so a web page in the user's browser
+        # must not be able to read or change it. No CORS grant; a request from
+        # another origin (or "null") is refused; on loopback the Host header
+        # must be loopback too, which stops DNS rebinding.
+        def _cors(self):
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Referrer-Policy", "no-referrer")
+
+        def _trusted(self) -> bool:
+            host = self.headers.get("Host", "")
+            name = urlsplit(f"http://{host}").hostname or ""
+            if loopback_only and not (name == "localhost" or _is_ip_loopback(name)):
+                return False
+            origin = self.headers.get("Origin")
+            if origin is not None and origin != f"http://{host}":
+                return False
+            return self.headers.get("Sec-Fetch-Site", "same-origin") in ("same-origin", "none")
+
+        def _refuse(self):
+            self.send_response(403)
+            self.send_header("Content-Length", "0")
+            self._cors()
+            self.end_headers()
+
+        def do_OPTIONS(self):
+            self._refuse()  # nothing here is offered cross-origin
 
         def _send_asset(self, path):
             filename, content_type = ASSETS[path]
@@ -122,12 +158,17 @@ def make_handler():
             self.wfile.write(body)
 
         def do_GET(self):
-            from urllib.parse import urlsplit
-
+            if not self._trusted():
+                return self._refuse()
             path = urlsplit(self.path).path
             if path in ASSETS:
                 return self._send_asset(path)
             return super().do_GET()
+
+        def do_POST(self):
+            if not self._trusted():
+                return self._refuse()
+            return super().do_POST()
 
     return Handler, service
 
@@ -138,7 +179,7 @@ def serve(db: Path, host: str, port: int) -> None:
     if not db.is_file():
         if init_ledger(db):
             print(f"  created a new local ledger: {db}", file=sys.stderr)
-    Handler, service = make_handler()
+    Handler, service = make_handler(loopback_only=is_loopback(host))
     service.DB_PATH = str(db)
     service.store().require_ready()
     try:

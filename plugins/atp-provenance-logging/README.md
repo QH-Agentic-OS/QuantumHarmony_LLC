@@ -49,11 +49,14 @@ python3 scripts/prove_local.py export <root prov_id> > run.json
 
 `prove_local.py` binds `127.0.0.1` and refuses any other address unless you
 pass `--allow-remote`, because the local service has no authentication.
+It also answers only its own dashboard: a request from another web origin
+(or a page opened from disk) is refused, so other sites in your browser cannot
+read or change the ledger.
 
 **Single-file dashboard.** `ui/prove-offline.html` holds React, the app and
 the CSS in one file. Copy it anywhere (a USB stick, an air-gapped machine) and
 open it from disk to **Import JSON** an export or run **Simulate**. Live mode
-needs the service. Rebuild it after syncing the UI with
+needs the service: open `http://127.0.0.1:8787/` for that. Rebuild it after syncing the UI with
 `python3 scripts/build_offline.py`.
 
 ### Hosted
@@ -101,7 +104,7 @@ harness-captured steps count.
 | `ledger_path` | `~/.prove/provenance.db` | local ledger file |
 | `capture` | on | forward session transcripts |
 | `autostart` | on | start the local service at session start |
-| `strict` | off | refuse prompts while Prove is unreachable (otherwise warn and continue) |
+| `strict` | off | refuse prompts while Prove is unreachable, rejects the token, or capture fails (otherwise warn and continue) |
 
 ## What gets recorded
 

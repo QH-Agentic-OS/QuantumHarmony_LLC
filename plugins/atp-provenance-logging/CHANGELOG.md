@@ -15,6 +15,11 @@
   the hooks), ATP prompt and response as markers under it, `prove_log.py`
   helper, `self_reported` entries. Without a captured session the helper binds
   and mints its own root.
+- **Local service is same-origin only.** No CORS grant; requests from another
+  origin, a `null` origin or a non-loopback Host are refused, so a web page
+  cannot read or change the local ledger.
+- **Strict mode** refuses a prompt when Prove is unreachable, rejects the
+  token, the endpoint setting is invalid, or capture fails.
 - Adds `PRIVACY.md`, plugin tests, and `server/SOURCE.md` sync notes.
 
 ## 1.0.0

@@ -58,6 +58,13 @@ def loopback(url: str) -> bool:
         return False
 
 
+def refuse(reason: str) -> int:
+    """Strict mode: UserPromptSubmit exit 2 blocks the prompt."""
+    print(f"atp provenance (strict): {reason}; prompt refused so no work goes unrecorded.",
+          file=sys.stderr)
+    return 2
+
+
 def warn(msg: str) -> None:
     print(json.dumps({"systemMessage": f"atp provenance: {msg}"}))
 
@@ -225,10 +232,14 @@ def main() -> int:
     except ValueError as exc:
         if event == "session-start":
             warn(f"{exc}; capture is off for this session")
+        if strict and event == "user-prompt":
+            return refuse(str(exc))
         return 2 if strict and event == "session-start" else 0
     if url is None:
         if event == "session-start":
             warn("hosted mode is selected but no service URL is set; capture is off")
+        if strict and event == "user-prompt":
+            return refuse("hosted mode is selected but no service URL is set")
         return 0
 
     if loopback(url):
@@ -249,15 +260,14 @@ def main() -> int:
                 where = running or "a ledger this plugin did not start"
                 warn(f"the Prove on port {port} is using {where}, not {wanted}; capture is off. "
                      f"Stop it (prove_local.py stop --port {port}) and start a new session.")
-            return 2 if strict and event == "user-prompt" else 0
+            if strict and event == "user-prompt":
+                return refuse(f"the Prove on port {port} is not using the selected ledger")
+            return 0
 
     if strict and event == "user-prompt":
         problem = readiness(url, token, mode)
         if problem:
-            # UserPromptSubmit is the event that can refuse work; exit 2 blocks the prompt.
-            print(f"atp provenance (strict): {problem}; "
-                  "prompt refused so no work goes unrecorded.", file=sys.stderr)
-            return 2
+            return refuse(problem)
 
     os.environ["PROVENANCE_SERVICE_URL"] = url
     os.environ["PROVENANCE_STRICT"] = "1" if strict else "0"

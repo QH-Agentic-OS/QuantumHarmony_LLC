@@ -86,9 +86,9 @@ def bounded_str(value: str) -> Any:
 
 def bounded(value: Any, root: str | None = None, key: str = "", depth: int = 0) -> Any:
     """Shrink arbitrary tool arguments into a storable, hash-stable shape."""
+    if key.lower() in CONTENT_KEYS and value is not None:
+        return digest(value)  # plugin build: any type, so JSON content is never kept
     if isinstance(value, str):
-        if key.lower() in CONTENT_KEYS:
-            return digest(value)
         if looks_like_path(value) and "\n" not in value:
             return path_ref(value, root)
         return bounded_str(value)
@@ -134,7 +134,8 @@ def _ms(start: str | None, end: str | None) -> int | None:
 
 def _tool_call(index: int, name: Any, args: Any, root: str | None, tool_use_id: Any = None) -> dict:
     args = args if isinstance(args, dict) else {"value": args}
-    decoded = {str(k): _decode_arg(v) for k, v in args.items()}
+    # Plugin build: content stays as sent, so its digest is the file text's.
+    decoded = {str(k): v if str(k).lower() in CONTENT_KEYS else _decode_arg(v) for k, v in args.items()}
     call = {
         "call_index": index,
         "tool_name": bounded_str(str(name or "unknown")),
