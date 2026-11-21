@@ -500,6 +500,15 @@ class DashboardDefaultsTests(unittest.TestCase):
         chain_import = app[app.index("format === 'agent_logs' || format === 'agent_logs_wrapped'"):]
         self.assertLess(chain_import.index("setServiceVerified(null)"), chain_import.index("setLogs(normalized)"))
 
+    def test_local_checks_use_the_urls_own_port(self):
+        sys.path.insert(0, str(SCRIPTS))
+        import prove_hook
+
+        self.assertEqual(prove_hook.effective_port("http://localhost"), 80)
+        self.assertEqual(prove_hook.effective_port("https://localhost/"), 443)
+        self.assertEqual(prove_hook.effective_port("http://127.0.0.1:8787"), 8787)
+        self.assertNotIn("or 8787", (SCRIPTS / "prove_hook.py").read_text())
+
     def test_dashboard_defaults_to_its_own_origin(self):
         js = (UI / "app.js").read_text()
         self.assertIn("fetch(`${origin}/health`", js)  # served by Prove: use its own origin

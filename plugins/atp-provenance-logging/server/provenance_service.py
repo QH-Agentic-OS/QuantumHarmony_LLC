@@ -96,6 +96,10 @@ def validate_ref_chain(conn, refs: dict):
     return store().validate_ref_chain(conn, refs)
 
 
+_HOST_PATTERN = re.compile(r"[A-Za-z0-9.\-]+(:[0-9]{1,5})?|\[[0-9A-Fa-f:.]+\](:[0-9]{1,5})?")
+_ORIGIN_PATTERN = re.compile(r"https?://(" + _HOST_PATTERN.pattern + r")")
+
+
 def _is_loopback_host(name):
     import ipaddress
 
@@ -121,30 +125,44 @@ class Handler(BaseHTTPRequestHandler):
     # request without one is refused, and on a loopback bind the Host header
     # must be loopback too (DNS rebinding). Clients that send no Origin
     # (hooks, scripts, curl) are unaffected.
-    def _allowed_origins(self):
+    def _host(self):
+        """The Host header, or "" when it is not a plain host[:port]."""
         host = self.headers.get("Host", "")
+        return host if _HOST_PATTERN.fullmatch(host) else ""
+
+    def _allowed_origins(self):
+        host = self._host()
         ui_port = os.environ.get("UI_PORT", "5175")
         extra = {
             o.strip().rstrip("/")
             for o in os.environ.get("PROV_ALLOWED_ORIGINS", "").split(",")
             if o.strip()
         }
-        return {
-            f"http://{host}",
-            f"https://{host}",
+        own = {f"http://{host}", f"https://{host}"} if host else set()
+        return own | {
             f"http://localhost:{ui_port}",
             f"http://127.0.0.1:{ui_port}",
         } | extra
 
+    def _matching_origin(self):
+        """The allowlisted origin equal to this request's Origin, or None.
+
+        The value returned comes from the allowlist, never from the request,
+        so nothing a client sends is copied into a response header.
+        """
+        origin = self.headers.get("Origin")
+        if origin is None:
+            return None
+        return next((o for o in self._allowed_origins() if o == origin and _ORIGIN_PATTERN.fullmatch(o)), None)
+
     def _request_trusted(self):
         bound = str(self.server.server_address[0])
         if _is_loopback_host(bound):
-            name = urlparse(f"http://{self.headers.get('Host', '')}").hostname or ""
+            name = urlparse(f"http://{self._host()}").hostname or ""
             if not _is_loopback_host(name):
                 return False
-        origin = self.headers.get("Origin")
-        if origin is not None:
-            return origin in self._allowed_origins()
+        if self.headers.get("Origin") is not None:
+            return self._matching_origin() is not None
         return self.headers.get("Sec-Fetch-Site", "none") in ("same-origin", "none")
 
     def _refuse_untrusted(self):
@@ -153,8 +171,8 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def _cors(self):
-        origin = self.headers.get("Origin")
-        if origin is not None and origin in self._allowed_origins():
+        origin = self._matching_origin()
+        if origin is not None:
             self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Vary", "Origin")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -213,6 +231,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(204)
         self._cors()
         self.end_headers()
+        return None
 
     # ── routes ────────────────────────────────────────────
     def do_GET(self):
@@ -299,10 +318,7 @@ class Handler(BaseHTTPRequestHandler):
         if route.path == "/verify":
             return self._send(*store().verify_chain(first("parent_prov_id")))
 
-        # Any other path: answer instead of closing the connection silently.
-        return self._send(404, {"error": "not found"})
-
-        self._send(404, {"error": "not found", "routes": ROUTES})
+        return self._send(404, {"error": "not found", "routes": ROUTES})
 
     def do_POST(self):
         if not self._request_trusted():

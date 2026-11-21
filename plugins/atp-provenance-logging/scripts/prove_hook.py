@@ -59,6 +59,12 @@ def loopback(url: str) -> bool:
         return False
 
 
+def effective_port(url: str) -> int:
+    """The port requests to this URL actually use (scheme default when omitted)."""
+    parts = urlsplit(url)
+    return parts.port or (443 if parts.scheme == "https" else 80)
+
+
 def destination_key(url: str) -> str:
     """One key per ledger, whatever the spelling of its address.
 
@@ -66,7 +72,7 @@ def destination_key(url: str) -> str:
     written out or left empty all name the same local ledger.
     """
     parts = urlsplit(url)
-    port = parts.port or (443 if parts.scheme == "https" else 80)
+    port = effective_port(url)
     if loopback(url):
         ledger = opt("LEDGER_PATH") or str(DEFAULT_DB)
         return f"local:{port}|{Path(ledger).expanduser().resolve()}"
@@ -216,9 +222,8 @@ def publish_session(hook: dict, state_dir: Path, url: str, mode: str) -> None:
 
 
 def autostart(url: str) -> None:
-    parts = urlsplit(url)
     cmd = [sys.executable, "-I", str(ROOT / "scripts" / "prove_local.py"), "start",
-           "--port", str(parts.port or 8787)]
+           "--port", str(effective_port(url))]
     ledger = opt("LEDGER_PATH")
     if ledger:
         cmd += ["--db", ledger]
@@ -261,7 +266,7 @@ def main() -> int:
         sys.path.insert(0, str(ROOT / "scripts"))
         import prove_local  # noqa: E402
 
-        port = urlsplit(url).port or 8787
+        port = effective_port(url)
         if event == "session-start" and flag("AUTOSTART", True) and not prove_local.health(port):
             try:
                 autostart(url)

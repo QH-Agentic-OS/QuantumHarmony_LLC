@@ -53,6 +53,13 @@ class Handler(service.Handler):
         # do_GET/do_POST checked the service-owned credential before dispatch.
         return True
 
+    def _allowed_origins(self):
+        # The hosted dashboard and API share one origin, and the browser sends
+        # Basic credentials to any page's request. Only that origin may write,
+        # so another site cannot use a signed-in browser's credentials (CSRF).
+        host = self._host()
+        return {f"http://{host}", f"https://{host}"} if host else set()
+
     def _cors(self):
         # Hosted UI and API share an origin. Do not grant cross-origin access.
         self.send_header("Cache-Control", "no-store")
@@ -100,7 +107,7 @@ class Handler(service.Handler):
         if path not in ASSETS and path not in service.ROUTES:
             return self._send(404, {"error": "not found"})
         if not self.authorized():
-            return
+            return None
         if path in ASSETS:
             filename, content_type = ASSETS[path]
             body = (ROOT / filename).read_bytes()
@@ -110,7 +117,7 @@ class Handler(service.Handler):
             self._cors()
             self.end_headers()
             self.wfile.write(body)
-            return
+            return None
         return super().do_GET()
 
     def do_POST(self):
