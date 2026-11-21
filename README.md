@@ -10,7 +10,7 @@ its own `.claude-plugin/plugin.json` and README.
 | Plugin | Version | Description |
 | --- | --- | --- |
 | [`artemis-transmission-protocol`](plugins/artemis-transmission-protocol) | 1.1.0 | Structured agent-to-agent communication via the Artemis Transmission Protocol (ATP). |
-| [`atp-provenance-logging`](plugins/atp-provenance-logging) | 1.0.0 | Line-item action provenance (parent + child `prov_id` in `agent_logs`; halt-and-alert on log failure). |
+| [`atp-provenance-logging`](plugins/atp-provenance-logging) | 2.0.0 | Line-item provenance: hooks capture every session step into Prove, plus the ATP skill and Mission Control dashboard. Hosted, standalone or offline. |
 | [`agent-scaffolder`](plugins/agent-scaffolder) | 1.0.0 | Scaffold AI agents from an Agent Card; generates system prompts + `index.md` / `AGENTS.md` / `.codex/instructions.md`. |
 | [`agent-definition`](plugins/agent-definition) | 1.0.0 | Build an Agent Card and write it to `agents/NAME/AGENTS.md`, inheriting parent `.agents` governance. |
 | [`project-scaffolder`](plugins/project-scaffolder) | 1.0.0 | Scaffold a project's `.agents/` governance frame (`instructions.md`, `index.md`, seeded `logs/`). |
