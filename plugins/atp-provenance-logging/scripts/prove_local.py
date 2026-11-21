@@ -153,7 +153,7 @@ def serve(db: Path, host: str, port: int) -> None:
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        pass
+        print("  stopped.", file=sys.stderr)  # Ctrl-C is the normal way to stop
     finally:
         httpd.server_close()
 
@@ -167,17 +167,18 @@ def start(db: Path, host: str, port: int, wait: float = 5.0) -> int:
         print(f"Prove already running: http://127.0.0.1:{port}/")
         return 0
     RUN_DIR.mkdir(parents=True, exist_ok=True)
-    log = open(RUN_DIR / f"prove-{port}.log", "ab")
     cmd = [sys.executable, "-I", str(Path(__file__).resolve()), "serve",
            "--db", str(db), "--host", host, "--port", str(port)]
     if not is_loopback(host):
         cmd.append("--allow-remote")
-    kwargs = {"stdout": log, "stderr": log, "stdin": subprocess.DEVNULL, "cwd": str(SERVER_DIR)}
-    if os.name == "posix":
-        kwargs["start_new_session"] = True
-    else:  # pragma: no cover - Windows
-        kwargs["creationflags"] = 0x00000008 | 0x00000200  # DETACHED | NEW_GROUP
-    proc = subprocess.Popen(cmd, **kwargs)
+    # The child keeps its own handle to the log; the parent's copy is closed here.
+    with open(RUN_DIR / f"prove-{port}.log", "ab") as log:
+        kwargs = {"stdout": log, "stderr": log, "stdin": subprocess.DEVNULL, "cwd": str(SERVER_DIR)}
+        if os.name == "posix":
+            kwargs["start_new_session"] = True
+        else:  # pragma: no cover - Windows
+            kwargs["creationflags"] = 0x00000008 | 0x00000200  # DETACHED | NEW_GROUP
+        proc = subprocess.Popen(cmd, **kwargs)
     pidfile(port).write_text(str(proc.pid))
     deadline = time.monotonic() + wait
     while time.monotonic() < deadline:
